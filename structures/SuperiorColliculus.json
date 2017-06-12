@@ -1,0 +1,15 @@
+{
+  "name" : "SuperiorColliculus",
+  "id" : "SuCo",
+  "parent" : "None",
+  "variables" : {
+    "input" : "visual information (incl. retina)",
+    "encode" : "topographic maps of the surrounding environment, ",
+    "output" : "deeper motor layers for eye movements towards
+    the place elected by competition in the sensory layer"
+  },
+  "citations" : "alexandre2015behavioral, lee1988population, taouali2015parsimonious, dean1989event, sommer2004brain",
+  "remarks" : "Performs direct sensorimotor associations for orientation of the whole body
+  for tracking novel stimuli, for defensive movements and flight in case of a danger.
+  Stage b/w between the retina, post-dors-CTX, FEF ",
+}

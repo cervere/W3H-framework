@@ -1,0 +1,12 @@
+{
+  "name" : "PreFrontalCortex",
+  "id" : "PFC",
+  "parent" : "None",
+  "variables" : {
+    "input" : "",
+    "encode" : "",
+    "output" : "to BLA"
+  },
+  "citations" : "alexandre2015behavioral",
+  "remarks" : "infralimbic, orbitofrontal,vmPFC as WM, for recent reward history",
+}

@@ -1,0 +1,14 @@
+{
+  "name" : "Cerebellum",
+  "id" : "CERBLM",
+  "parent" : "None",
+  "variables" : {
+    "input" : "sensory (incl. proprioception)",
+    "encode" : "",
+    "output" : "motor control strutures - movement execution to planning"
+  },
+  "functions" : "limb movements, manipulation, speech, both for direct automatic movements (postural adjustment, balistic movements, conditioned reflexes) , control
+of voluntary movement, more abstract cognitive functions",
+  "citations" : "alexandre2015behavioral,manto2012consensus,middleton2000basal",
+  "remarks" : "sensorimotor control"
+}

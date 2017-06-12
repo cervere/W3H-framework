@@ -1,0 +1,25 @@
+{
+  "name" : "Hypothalamus",
+  "id" : "HyTHL",
+  "parent" : "None",
+  "variables" : {
+    "input" : "",
+    "encode" : "",
+    "output" : ""
+  },
+  "citations" : "alexandre2015behavioral,",
+  "remarks" : "Group of nuclei - metabolic processes and activities
+  of autonomous nervous system",
+},
+{
+  "name" : "LateralHypothalamus",
+  "id" : "LaHyTHL",
+  "parent" : "HyTHL",
+  "variables" : {
+    "input" : "",
+    "encode" : "",
+    "output" : "sensory-inputs to insula, motivational behaviors"
+  },
+  "citations" : "alexandre2015behavioral,craig2003interoception",
+  "remarks" : "Evaluating needs, responsive to appetitive US",
+},

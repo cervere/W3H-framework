@@ -1,0 +1,25 @@
+{
+    "finality" : "#survive",
+    "survive" : {
+       "remarks" : "maintain vital variables within specific bounds",
+   },
+   "interoception" : {
+     "responses" : {
+       "emotional" : {
+         "innate" : {
+           "id" : "CeA",
+           "references" : "#physiological",
+           "remarks" : "central nucleus of the amygdala",
+          },
+          "invoked" : {
+            "id" : "CeA",
+            "references" : "#physiological",
+            "remarks" : "stimulus based",
+          },
+        },
+        "physiological" : {
+          
+        },
+      }
+    }
+  }

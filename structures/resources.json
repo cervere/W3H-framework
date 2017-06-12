@@ -1,0 +1,32 @@
+{
+  "internal-body" : {
+    "health" : "",
+    "thirst" : "",
+    "hunger" : "",
+    "oxygen" : "",
+    "energy" : "",
+  },
+  "external-body" : {
+    "translation" : {
+      "speed" : "",
+      "yaw" : "",
+    },
+    "location" : {
+      "position" : "",
+      "orientation" : {
+        "yaw" : "",
+        "pitch" : "",
+      },
+    },
+  },
+  "external-environment" : {
+    "vision" : "",
+    "inventory" : "",
+  },
+  "global" : {
+    "motivation" : "",
+    "uncertainity" : "",
+    "goals" : [],
+    "rules" : []
+  },
+}

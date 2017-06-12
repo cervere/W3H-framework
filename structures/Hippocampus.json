@@ -1,0 +1,12 @@
+{
+  "name" : "Hippocampus",
+  "id" : "HIPP",
+  "parent" : "None",
+  "variables" : {
+    "input" : "",
+    "encode" : "",
+    "output" : "to BLA : build arbitrary relations among separate features of a behavioral episode"
+  },
+  "citations" : "alexandre2015behavioral,eichenbaum2012towards",
+  "remarks" : "configural or contextual representations  of CS and US",
+}

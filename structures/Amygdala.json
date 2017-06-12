@@ -1,0 +1,72 @@
+{
+  "name" : "Amygdala",
+  "id" : "AMG",
+  "parent" : "None",
+  "variables" : {
+    "input" : "",
+    "encode" : "",
+    "output" : ""
+  },
+  "citations" : "alexandre2015behavioral,swanson1998amygdala,ledoux2007amygdala",
+  "remarks" : "Non-homogeneous structure with sensory and motor aspects.
+  Known for fear conditioning",
+},
+{
+  "name" : "CentralAmygdala",
+  "id" : "CeA",
+  "parent" : "AMG",
+  "variables" : {
+    "input" : "from BLA; 30% of the neurons (CeLon) acquire an excitatory response (possibly from 'fear' neurons in LA)",
+    "input" : "from BLA; 25% a strong inhibitory response and are (mutual inhibition with above) (possibly from 'low-fear' neurons in BA)",
+    "encode" : "",
+    "output" : "innate-emotional-responses; physiological-responses (o/p to structures resp. for motor, hormonal and autonomic expression)"
+  },
+  "citations" : "alexandre2015behavioral,cardinal2002emotion,cassell1999intrinsic,ciocchi2010encoding",
+  "remarks" : "Output for expression of innate emotional response,
+  related to physiological responses, in relation with PAG &
+  Lateral Hypothalamus",
+},
+{
+  "name" : "BasalAmygdala",
+  "id" : "BA",
+  "parent" : "AMG",
+  "variables" : {
+    "input" : "receiving sensory input,
+    from HIPP to high-fear neurons for contextdependent acquisition and renewal
+    from infralimbic cortex(PFC) to low-fear neurons for extinction",
+    "encode" : "sensory info of US - appetitive/aversive;
+                level of arousal; ambiguity; unpredictibility of information",
+    "output" : ""
+  },
+  "citations" : "alexandre2015behavioral,carrere2015pavlovian,belova2007expectation,pessoa2010emotion,ledoux2007amygdala,herry2008switching",
+  "remarks" : "Information exchange with high level structures
+  like PFC and Hippocampus",
+},
+{
+  "name" : "LateralAmygdala",
+  "id" : "LA",
+  "parent" : "AMG",
+  "variables" : {
+    "input" : "sensory information from THL & CTX to 'fear' neurons (through inhibitory connections)",
+    "encode" : "CS-US associations",
+    "output" : ""
+  },
+  "citations" : "alexandre2015behavioral,lee2013inhibitory",
+  "remarks" : "Sensory inputs from Thalamus and Cortex;
+  Stores CS-US associations",
+},
+{
+  "name" : "BasoLateralAmygdala",
+  "id" : "BLA",
+  "parent" : "AMG",
+  "variables" : {
+    "input" : "CS and US activate, relations b/w features of an episode, from HIPP,
+    necessary for the acquisition of extinction and for extinction memory from PFC",
+    "input" : "from mPFC : inhibitive toward CS-US associations",
+    "encode" : "value; valence (of emotional stimuli), CS-US association",
+    "output" : "relay to CTX, VeSTR, Hipp"
+  },
+  "citations" : "alexandre2015behavioral,barot2008visualizing,sierra2011dissociable,pauli2012expectancy,moren2002emotion",
+  "remarks" : "Information exchange with high level structures
+  like PFC and Hippocampus",
+}

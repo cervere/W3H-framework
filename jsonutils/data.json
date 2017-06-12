@@ -1,0 +1,29 @@
+{
+  "data" : [
+    {
+      "name" : "Apple Zebra",
+      "id" : "AZ1",
+      "type" : "random"
+    },
+    {
+      "name" : "Banana Yak",
+      "id" : "BY3",
+      "type" : "random"
+    },
+    {
+      "name" : "Pears Rabbit",
+      "id" : "PR2",
+      "type" : "random"
+    },
+    {
+      "name" : "Citron Dog",
+      "id" : "CD6",
+      "type" : "random"
+    },
+    {
+      "name" : "Apricot Zenga",
+      "id" : "AZ1",
+      "type" : "random"
+    }
+  ]
+}
