@@ -1,0 +1,91 @@
+\documentclass{article}
+\usepackage{standalone}
+\usepackage{blindtext}
+\usepackage{titlesec}
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{pdfpages}
+\usepackage{hyperref}
+%\usepackage{fancyhdr}
+
+\title{Survival}
+\author{and what it takes...}
+\date{ }
+
+\addto\captionsenglish{
+    \renewcommand*\contentsname{Contents}
+}
+
+\newcommand\invisiblesection[1]{%
+  \refstepcounter{section}%
+  \addcontentsline{toc}{section}{\protect\numberline{\thesection}#1}%
+  \sectionmark{#1}}
+  
+\begin{document}
+\maketitle
+\tableofcontents
+\clearpage
+
+\section{Outline}
+Computational neuronal modeling of the synergy between different mem-
+ory systems in animal brain, responsible for Autonomous Learning to
+survive in the unknown external world.  Exploring the possibilities of
+applying the key underlying principles in modern day Machine Learning
+algorithms. The plan is to use Microsoft Malmo, an AI experimentation
+platform, as a virtual environment with an agent motivated to survive in
+it. This platform allows to construct the external world and to be able
+to train and test the neural models on the agent.
+
+\section{Hypothesis}
+%\includepdf[pages=1-]{coverletter.pdf}
+The preliminary idea about the neural pathways involved and the role they play in helping the animal to survive has been drafted by Frederic Alexandre in \href{https://hal.inria.fr/hal-01246653/}{A behavioral framework for a systemic view of brain modeling}.
+
+We try to build a framework that would integrate different memory systems to coordinate together to help the animal survive. Various principles govern the way the framework works. Few of them are:
+\begin{itemize}
+\item Embodiment
+\item Value
+\begin{itemize}
+\item Emotional
+\item Motivational
+\end{itemize} 
+\item Goals
+\item Uncertainty
+\item Sensori-motor loops
+\item Rules
+\item Error prediction (Learning)
+\end{itemize} 
+
+\clearpage
+\section{Quick notes from Reddish}
+\par Interesting - value, not just independent representation, but 
+value of taking an action given that the agent
+is in a certain situation (or state).
+\\
+\subsection{State}
+\begin{itemize}
+\item Categorization of the agent’s current situation as a member of a class of similar situations. 
+\item Representative collection of salient observations that might include notable events, environmental configurations, actions, et cetera. 
+\item States can include both spatial and temporal extents. 
+\item Each unique state is associated with a value representing the time-discounted future reward that a behaving animal would expect when starting from that state.
+\end{itemize}
+
+\subsubsection{Extinction as different state space}
+"We propose that the extinction phase entails the development of a new (parallel) state space that can then contain a different value estimate."\\
+\textbf{Q} : If extinction was earlier suggested to be an inhibition of the existing association (Maxime's paper) rather than a separate association itself, doesn't this contradict?
+
+\subsubsection{Way to demonstrate splitting of state space}
+Two experiments in which an animal is faced with
+two contexts, one in which reward is provided in both contexts and
+another in which reward is provided in only the first context, the
+model splits only the state in the situation in which reward is not
+provided in the second context
+
+\subsubsection{Example Model}
+\begin{itemize}
+\item Context 
+\item State identification (binary)
+\item Reward magnitude
+\item time-since-last-reward (for each environment / condition (or situation?) )
+\end{itemize}
+
+\end{document}
