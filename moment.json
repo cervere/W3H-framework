@@ -1,0 +1,30 @@
+{
+    "globalTime" : "",
+    "state" : {
+      "health" : "",
+      "hunger" : "",
+      "thirst" : "",
+      "energy" : "",
+      "location" : {
+        "position" : {
+          "x" : "",
+          "y" : "",
+          "z" : ""
+        },
+        "orientation" : {
+          "yaw" : "",
+          "pitch" : ""
+        }
+      }
+    },
+    "observation" : {
+      "context" : {
+
+      },
+      "stimuli" : {
+
+    }
+    },
+    "reward" : "",
+    "action" : ""
+}
