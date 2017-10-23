@@ -209,7 +209,7 @@ for iRepeat in range(num_reps):
             #print np.reshape(appear, (2,7))
             #print np.reshape(see, (2,5))
             #print reach
-            observations["data"].append(ob)
+            if ob.get(u'WorldTime', -1) > 100 and ob.get(u'WorldTime', -1) < 110 : observations["data"].append(ob)
 
             moment = base_moment.copy()
             prepareMoment(moment, ob)
@@ -224,7 +224,7 @@ for iRepeat in range(num_reps):
             if "far_entities" in ob:
                 far_entities = [EntityInfo(**k) for k in ob["far_entities"]]
                 for ent in far_entities:
-                    print 'Far ent : ' + str(ent.name) + ',' + str(ent.quantity)
+                    print str(ob.get(u'WorldTime', -1)) + 'Far ent : ' + str(ent.name) + ',' + str(ent.quantity)
             if jumping and reach[4]!=u'lava':
                 agent_host.sendCommand("jump 0")
                 jumping = False

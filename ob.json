@@ -1,0 +1,52 @@
+{
+  "WorldTime": 108,
+  "XPos": 5.5,
+  "YPos": 227,
+  "ZPos": -31.395658090777523,
+  "Yaw": 0,
+  "Pitch": 0,
+  "Life": 20,
+  "Food": 20,
+  "reach": [],
+  "see": [],
+  "appear": [],
+  "close_entities": [
+    {
+      "y": 227,
+      "x": 5.5,
+      "z": -31.179799051843474,
+      "name": "Player634"
+    }
+  ],
+  "far_entities": [
+    {
+      "y": 227,
+      "x": 5.5,
+      "z": -31.179799051843474,
+      "name": "Player634"
+    },
+    {
+      "y": 227,
+      "x": 1.062499999981854,
+      "z": -21.5,
+      "name": "apple",
+      "quantity": 1
+    },
+    {
+      "y": 227,
+      "x": 2.5,
+      "z": -31.5,
+      "name": "water_bucket",
+      "quantity": 1
+    }
+  ],
+  "Score": 0,
+  "MobsKilled": 0,
+  "Air": 300,
+  "DistanceTravelled": 1840,
+  "XP": 0,
+  "TotalTime": 108,
+  "IsAlive": true,
+  "DamageTaken": 0,
+  "TimeAlive": 99
+}

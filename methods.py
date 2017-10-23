@@ -22,16 +22,16 @@ def setContext(moment, position_grid):
 def setCues(moment, close_entities, worldTime):
     moment['observation']['stimuli'][worldTime] = close_entities
 
-def prepareMoment(moment, obj):
+def prepareMoment(moment, ob):
     ''' Takes malmo object at each instant and forms a moment
     This might seem redundant in the beginning but later would be useful
     as better representation for the models
     '''
-    setPosition(moment, obj.get(u'XPos', 0), obj.get(u'ZPos', 0), obj.get(u'YPos', 0),
-                obj.get(u'Yaw', 0),obj.get(u'Pitch', 0))
-    if "close_entities" in obj:
-        setContext(moment, obj.get(u'embodied', []))
-        setCues(moment, obj.get(u'close_entities', []), obj.get(u'WorldTime', -1))
+    setPosition(moment, ob.get(u'XPos', 0), ob.get(u'ZPos', 0), ob.get(u'YPos', 0),
+                ob.get(u'Yaw', 0),ob.get(u'Pitch', 0))
+    if "close_entities" in ob:
+        setContext(moment, ob.get(u'embodied', []))
+        setCues(moment, ob.get(u'close_entities', []), ob.get(u'WorldTime', -1))
 
 def getBlocks(info) :
     ''' Given the type of block and the set of coordinates,
