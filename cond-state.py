@@ -164,8 +164,8 @@ for iRepeat in range(num_reps):
     rightTurnSequence += "setYaw -45; wait 10; tpx 5.33;"
     rightTurnSequence += "setYaw 0; "
     leftTurnSequence  = ""#move 1; wait 10;"
-    leftTurnSequence += "setYaw -45; wait 10;"
-    leftTurnSequence += "setYaw 45; wait 10; tpx 5.5;"
+    leftTurnSequence += "setYaw 45; wait 10;"
+    leftTurnSequence += "setYaw -45; wait 10; tpx 5.33;"
     leftTurnSequence += "setYaw 0; "
     currentSequence = "move 1;"
     energy = 20
@@ -201,7 +201,7 @@ for iRepeat in range(num_reps):
                 energy -= 1
                 SendChat("Spending energy to JUMP. Energy left : "+str(energy))
             if grid[4]==u'cobblestone':
-                currentSequence = random.choice([rightTurnSequence, leftTurnSequence])
+                currentSequence = turnSequence
             elif grid[16]==u'stone' and currentSequence == '':
                 #currentSequence = "move 0"
                 currentSequence = "hotbar.9 1; hotbar.9 0; pitch 1; wait 5; pitch 0; attack 1; wait 5; attack 0; pitch -1; wait 5; pitch 0"

@@ -9,14 +9,14 @@ import errno
 import numpy as np
 from pprint import pprint
 from collections import namedtuple
-from methods import getBlocks,getCuboids,getItems,prepareMoment
+from methods import getBlocks,getCuboids,getItems,prepareMoment,inFOV
 from data import *
-
+import copy
 #### Grid data goes to context
 #### ObservationsFromNearby goes to cues / items with locations
 
 
-EntityInfo = namedtuple('EntityInfo', 'x, y, z, name, quantity, yaw, pitch')
+EntityInfo = namedtuple('EntityInfo', 'x, y, z, name, quantity, yaw, pitch, life')
 EntityInfo.__new__.__defaults__ = (0, 0, 0, "", 1)
 
 
@@ -145,6 +145,8 @@ else:
 with open('moment.json') as fp:
     base_moment = json.load(fp)
 
+
+
 jumping = False
 itemdrawingxml = GetItemDrawingXML()
 for iRepeat in range(num_reps):
@@ -211,8 +213,13 @@ for iRepeat in range(num_reps):
             #print reach
             if ob.get(u'WorldTime', -1) > 100 and ob.get(u'WorldTime', -1) < 110 : observations["data"].append(ob)
 
-            moment = base_moment.copy()
-            prepareMoment(moment, ob)
+            moment = copy.copy(base_moment)
+            print 'BEFORE 1 '
+            pprint(base_moment.copy())
+            print 'BEFORE 2'
+            pprint(moment)
+            prepareMoment(base_moment.copy(), ob)
+
             pprint(moment)
             #print moment
             #print np.reshape(grid, (grid.size/2, grid.size/2))
@@ -221,10 +228,6 @@ for iRepeat in range(num_reps):
                 for ent in entities:
                     print ''#'Close ent : ' + str(ent.name) +  ',' + str(ent.quantity)
 
-            if "far_entities" in ob:
-                far_entities = [EntityInfo(**k) for k in ob["far_entities"]]
-                #for ent in far_entities:
-                    #print str(ob.get(u'WorldTime', -1)) + 'Far ent : ' + str(ent.name) + ',' + str(ent.quantity)
             if jumping and reach[4]!=u'lava':
                 agent_host.sendCommand("jump 0")
                 jumping = False

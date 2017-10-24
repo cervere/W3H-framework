@@ -21,8 +21,13 @@
       "context" : {
 
       },
-      "proximity" : "",
-      "entities" : [
+      "reach" : [
+
+      ],
+      "see" : [
+
+      ],
+      "appear" : [
 
       ]
     },
