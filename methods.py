@@ -16,22 +16,33 @@ def setPosition(moment, x,y,z, yaw=90, pitch=1.0) :
     moment['state']['location']['position'] = position
     moment['state']['location']['orientation'] = orientation
 
-def setContext(moment, position_grid):
+def setContext(moment, reach, see):
+    elements, repeats = np.unique(np.concatenate([reach, see]), return_counts=True)
+    strengths = np.around(1.* repeats / repeats.sum(), decimals=2)
+    for x, y in zip(elements, strengths) :
+        moment['observation']['context'][x] = y
+
+def setObservation(moment, position_grid):
     moment['observation']['context'] = position_grid
 
-def setCues(moment, close_entities, worldTime):
-    moment['observation']['stimuli'][worldTime] = close_entities
+def setCues(moment, far_entities):
+    moment['observation']['entities'] = far_entities
 
 def prepareMoment(moment, ob):
     ''' Takes malmo object at each instant and forms a moment
     This might seem redundant in the beginning but later would be useful
     as better representation for the models
     '''
-    setPosition(moment, ob.get(u'XPos', 0), ob.get(u'ZPos', 0), ob.get(u'YPos', 0),
+    setPosition(moment, ob.get(u'XPos', 0), ob.get(u'YPos', 0), ob.get(u'ZPos', 0),
                 ob.get(u'Yaw', 0),ob.get(u'Pitch', 0))
-    if "close_entities" in ob:
-        setContext(moment, ob.get(u'embodied', []))
-        setCues(moment, ob.get(u'close_entities', []), ob.get(u'WorldTime', -1))
+    '''
+    Context is considered only from 'REACH' and 'SEE' zones. And it is a weighted
+    list of all the block types present in both the zones
+    For e.g {"lapis_block" : 0.8, "sandstone" : 0.2}
+    '''
+    if "far_entities" in ob: #Make sure these keys like "far_entities" are picked from a common place even in the XML
+        setContext(moment, ob.get(u'reach', []), ob.get(u'see', []))
+        setCues(moment, ob.get(u'far_entities', []))
 
 def getBlocks(info) :
     ''' Given the type of block and the set of coordinates,

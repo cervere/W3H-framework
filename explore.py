@@ -71,8 +71,8 @@ def GetMissionXML(summary, itemDrawingXML):
                 </ObservationFromNearbyEntities>
                   <ObservationFromGrid>
                       <Grid name="reach">
-                        <min x="-1" y="-1" z="-1"/>
-                        <max x="1" y="0" z="1"/>
+                        <min x="-1" y="-1" z="0"/>
+                        <max x="1" y="-1" z="1"/>
                       </Grid>
                       <Grid name="see">
                         <min x="-2" y="-1" z="2"/>
@@ -223,16 +223,16 @@ for iRepeat in range(num_reps):
 
             if "far_entities" in ob:
                 far_entities = [EntityInfo(**k) for k in ob["far_entities"]]
-                for ent in far_entities:
-                    print str(ob.get(u'WorldTime', -1)) + 'Far ent : ' + str(ent.name) + ',' + str(ent.quantity)
+                #for ent in far_entities:
+                    #print str(ob.get(u'WorldTime', -1)) + 'Far ent : ' + str(ent.name) + ',' + str(ent.quantity)
             if jumping and reach[4]!=u'lava':
                 agent_host.sendCommand("jump 0")
                 jumping = False
                 energy -= 1
                 SendChat("Spending energy to JUMP. Energy left : "+str(energy))
-            if reach[4]==u'cobblestone':
+            if reach[1]==u'cobblestone':
                 currentSequence = turnSequence
-            elif reach[7]==u'lava':
+            elif reach[4]==u'lava':
                 agent_host.sendCommand("jump 1")
                 jumping = True
 

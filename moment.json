@@ -21,9 +21,10 @@
       "context" : {
 
       },
-      "stimuli" : {
+      "proximity" : "",
+      "entities" : [
 
-    }
+      ]
     },
     "reward" : "",
     "action" : ""
