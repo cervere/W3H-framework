@@ -33,6 +33,7 @@ def prepareMoment(moment, ob):
     This might seem redundant in the beginning but later would be useful
     as better representation for the models
     '''
+    moment['globalTime'] = ob.get(u'WorldTime', 0)
     setPosition(moment, ob.get(u'XPos', 0), ob.get(u'YPos', 0), ob.get(u'ZPos', 0),
                 ob.get(u'Yaw', 0),ob.get(u'Pitch', 0))
     '''
