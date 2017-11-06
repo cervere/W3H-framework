@@ -9,93 +9,19 @@ import errno
 import numpy as np
 from pprint import pprint
 from collections import namedtuple
-from methods import getBlocks,getCuboids,getItems,prepareMoment
-from data import *
+from methods import prepareMoment
+from xmlutils import GetMissionXML, GetItemDrawingXML
+from actions import *
 
 #### Grid data goes to context
 #### ObservationsFromNearby goes to cues / items with locations
 
 
-EntityInfo = namedtuple('EntityInfo', 'x, y, z, name, quantity, yaw, pitch')
+EntityInfo = namedtuple('EntityInfo', 'x, y, z, name, quantity, yaw, pitch, life')
 EntityInfo.__new__.__defaults__ = (0, 0, 0, "", 1)
 
 
-def GetMissionXML(summary, itemDrawingXML):
-    ''' Build an XML mission string that uses the RewardForCollectingItem mission handler.'''
 
-    return '''<?xml version="1.0" encoding="UTF-8" ?>
-    <Mission xmlns="http://ProjectMalmo.microsoft.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-        <About>
-            <Summary>''' + summary + '''</Summary>
-        </About>
-
-        <ServerSection>
-            <ServerHandlers>
-                <FlatWorldGenerator generatorString="3;7,220*1,5*3,2;3;,biome_1" forceReset="true"/>
-                <DrawingDecorator>
-                ''' + itemDrawingXML + '''
-                </DrawingDecorator>
-                <ServerQuitFromTimeUp timeLimitMs="50000"/>
-                <ServerQuitWhenAnyAgentFinishes />
-            </ServerHandlers>
-        </ServerSection>
-
-        <AgentSection mode="Survival">
-            <Name>The Hungry Caterpillar</Name>
-            <AgentStart>
-                <Placement x="5.5" y="227.0" z="-49.5"/>
-                <Inventory>
-                    <InventoryItem slot="8" type="diamond_pickaxe"/>
-                </Inventory>
-            </AgentStart>
-            <AgentHandlers>
-                <InventoryCommands/>
-                <ChatCommands/>
-                <AbsoluteMovementCommands/>
-                <DiscreteMovementCommands />
-                <VideoProducer>
-                    <Width>480</Width>
-                    <Height>320</Height>
-                </VideoProducer>
-                <RewardForCollectingItem>
-                    <Item reward="2" type="fish porkchop beef chicken rabbit mutton"/>
-                    <Item reward="1" type="potato egg carrot"/>
-                    <Item reward="-1" type="apple melon"/>
-                    <Item reward="-2" type="sugar cake cookie pumpkin_pie"/>
-                </RewardForCollectingItem>
-                <ContinuousMovementCommands turnSpeedDegs="50"/>
-                <ObservationFromFullStats/>
-                <ObservationFromNearbyEntities>
-                    <Range name="close_entities" xrange="2" yrange="2" zrange="2" />
-                    <Range name="far_entities" xrange="10" yrange="2" zrange="10" update_frequency="1"/>
-                </ObservationFromNearbyEntities>
-                  <ObservationFromGrid>
-                      <Grid name="reach">
-                        <min x="-1" y="-1" z="0"/>
-                        <max x="1" y="-1" z="1"/>
-                      </Grid>
-                      <Grid name="see">
-                        <min x="-2" y="-1" z="2"/>
-                        <max x="2" y="-1" z="3"/>
-                      </Grid>
-                      <Grid name="appear">
-                        <min x="-3" y="-1" z="4"/>
-                        <max x="3" y="-1" z="5"/>
-                      </Grid>
-                  </ObservationFromGrid>
-      <AgentQuitFromTouchingBlockType>
-          <Block type="grass" />
-      </AgentQuitFromTouchingBlockType>
-
-            </AgentHandlers>
-        </AgentSection>
-
-    </Mission>'''
-
-def GetItemDrawingXML():
-    ''' Build the required blocks, items and the type of floor'''
-    #return str(getCuboids(floor))# + getBlocks(blocks) + getItems(items))
-    return str(getCuboids(floor) + getItems(items))
 
 def SendChat(msg):
     agent_host.sendCommand( "chat " + msg )
@@ -122,9 +48,9 @@ validate = True
 # is using these ports):
 my_client_pool = MalmoPython.ClientPool()
 my_client_pool.add(MalmoPython.ClientInfo("127.0.0.1", 10000))
-my_client_pool.add(MalmoPython.ClientInfo("127.0.0.1", 10001))
-my_client_pool.add(MalmoPython.ClientInfo("127.0.0.1", 10002))
-my_client_pool.add(MalmoPython.ClientInfo("127.0.0.1", 10003))
+#my_client_pool.add(MalmoPython.ClientInfo("127.0.0.1", 10001))
+#my_client_pool.add(MalmoPython.ClientInfo("127.0.0.1", 10002))
+#my_client_pool.add(MalmoPython.ClientInfo("127.0.0.1", 10003))
 
 agent_host = MalmoPython.AgentHost()
 try:
@@ -176,12 +102,6 @@ for iRepeat in range(num_reps):
     turncount = 0   # for counting turn time.
     count = 0   # for counting turn time.
     waitCycles = 0
-    turnSequence  = ""#move 1; wait 10;"
-    turnSequence += "setYaw 45; wait 10;"
-    turnSequence += "setYaw -45; wait 10; tpx 5.33;"
-    turnSequence += "setYaw 0; "
-    attackSequence = "hotbar.9 1; hotbar.9 0; pitch 1; wait 5; pitch 0;"
-    attackSequence += "attack 1; wait 5; attack 0; pitch -1; wait 5; pitch 0"
     currentSequence = "move 1;"
     energy = 20
     observations = {"data" : []}
@@ -196,26 +116,15 @@ for iRepeat in range(num_reps):
             if waitCycles > 0: waitCycles -= 1
             msg = world_state.observations[-1].text
             ob = json.loads(msg)
-            # Use prepareMoment - location
-            current_x = ob.get(u'XPos', 0)
-            current_z = ob.get(u'ZPos', 0)
-            current_y = ob.get(u'YPos', 0)
-            yaw = ob.get(u'Yaw', 0)
-            pitch = ob.get(u'Pitch', 0)
             # Use prepareMoment - observations
             reach = np.asarray(ob.get(u'reach', 0))
             see = np.asarray(ob.get(u'see', 0))
             appear = np.asarray(ob.get(u'appear', 0))
-            #print np.reshape(appear, (2,7))
-            #print np.reshape(see, (2,5))
-            #print reach
             if ob.get(u'WorldTime', -1) > 100 and ob.get(u'WorldTime', -1) < 110 : observations["data"].append(ob)
 
             moment = base_moment.copy()
             prepareMoment(moment, ob)
             pprint(moment)
-            #print moment
-            #print np.reshape(grid, (grid.size/2, grid.size/2))
             if "close_entities" in ob:
                 entities = [EntityInfo(**k) for k in ob["close_entities"]]
                 for ent in entities:
@@ -231,7 +140,7 @@ for iRepeat in range(num_reps):
                 energy -= 1
                 SendChat("Spending energy to JUMP. Energy left : "+str(energy))
             if reach[1]==u'cobblestone':
-                currentSequence = turnSequence
+                currentSequence = TURN_RIGHT
             elif reach[4]==u'lava':
                 agent_host.sendCommand("jump 1")
                 jumping = True
