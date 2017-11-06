@@ -6,6 +6,22 @@ sight = 5
 position = [sight, sight-1]
 fov = np.pi * (1./2) #Starting with 90, can be changed to 120
 
+
+# y = m*x + c
+# c keeps chagning depending on the agent position
+# If agent is at (x,y), c = (y - mx) where m is the slope => tan(fov/2)
+
+#So given an iem's position, it can be verified if the item falls within the
+# field of vision by :
+# getting the x coordinate that would be on the line y=m*x+c for a given y of the item
+
+def inFOV (agent, item, fov=np.pi * (1./2)) :
+    m = np.tan(fov/2)
+    c = agent[1] - m*agent[0]
+    x = (item[1] - c) / m
+    return item[0] < x
+
+
 reach = 1
 see = 3
 appear = 5

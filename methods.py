@@ -5,6 +5,18 @@ from sample_data import *
 
 debug = False
 
+REACH_SCOPE = 1
+SEE_SCOPE = 3
+APPEAR_SCOPE = 5
+
+
+
+def inFOV (agent, item, fov=np.pi * (1./2)) :
+    m = np.tan(fov/2)
+    c = agent[1] - m*agent[0]
+    x = (item[1] - c) / m
+    return item[0] < x
+
 
 def setPosition(moment, x,y,z, yaw=90, pitch=1.0) :
     ''' See moment.json for the representation of each moment in time.
@@ -22,11 +34,20 @@ def setContext(moment, reach, see):
     for x, y in zip(elements, strengths) :
         moment['observation']['context'][x] = y
 
-def setObservation(moment, position_grid):
-    moment['observation']['context'] = position_grid
+def setCues(moment, x, z, far_entities):
+    for ent in far_entities:
+        #(For the points on the left of the agent, inFOV calculation is the same
+        # by transforming the point to the right of the agent
+        ex, ez = ent["x"], ent["z"]
+        trans_point = [ex, ez]
+        if ex > x : trans_point[0] = 2*x - ex
 
-def setCues(moment, far_entities):
-    moment['observation']['entities'] = far_entities
+        zdist = abs(ez - z)
+
+        if zdist <= APPEAR_SCOPE and inFOV([x, z], trans_point):
+            if   zdist <= REACH_SCOPE : moment['observation']['reach'].append(ent)
+            elif zdist <= SEE_SCOPE   : moment['observation']['see'].append(ent)
+            else                      : moment['observation']['appear'].append(ent)
 
 def prepareMoment(moment, ob):
     ''' Takes malmo object at each instant and forms a moment
@@ -43,7 +64,7 @@ def prepareMoment(moment, ob):
     '''
     if "far_entities" in ob: #Make sure these keys like "far_entities" are picked from a common place even in the XML
         setContext(moment, ob.get(u'reach', []), ob.get(u'see', []))
-        setCues(moment, ob.get(u'far_entities', []))
+        setCues(moment, x, z, ob.get(u'far_entities', []))
 
 def getBlocks(info) :
     ''' Given the type of block and the set of coordinates,
@@ -148,10 +169,10 @@ def printGrid(m, n, feel=1, see=3, appear=5):
         print
 #pprint(data)
 
-debug = True
+debug = False
 if debug :
     print getCuboids(CUBOID_SAMPLE)
     print getBlocks(BLOCK_ITEM_SAMPLE)
     print getItems(BLOCK_ITEM_SAMPLE)
 
-printGrid(9,9)
+#printGrid(9,9)
