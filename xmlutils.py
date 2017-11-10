@@ -1,6 +1,7 @@
 from methods import getBlocks,getCuboids,getItems
 from data import *
 from data_basic import *
+from constants import *
 
 global x, y, z, START_POINT
 
@@ -28,7 +29,7 @@ def GetMissionXML(summary, itemDrawingXML):
         </ServerSection>
 
         <AgentSection mode="Survival">
-            <Name>OSS 117</Name>
+            <Name>''' + AGENT_NAME + '''</Name>
             <AgentStart>
                 <Placement x=
                 "''' + str(START_POINT[x]) + '''" y=

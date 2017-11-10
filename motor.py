@@ -72,7 +72,9 @@ else:
 with open('moment.json') as fp:
     base_moment = json.load(fp)
 
+global moving
 
+moving = True
 
 jumping = False
 itemdrawingxml = GetItemDrawingXML(testing=True)
@@ -128,10 +130,25 @@ for iRepeat in range(num_reps):
             prepareMoment(moment, ob)
 
             # For some debugging
-            if len(moment['observation']['appear']) > 1 :
+            if moving and len(moment['observation']['appear']) > 0 : #The agent name is excluded already in preparing the moment
                 observations["data"].append(ob)
                 pprint(moment)
                 currentSequence = "move 0"
+                moving = False
+                SendChat('Few options appear. Will evaluate using motor loop!')
+                print moment['state']['location']
+                i = 0
+                for it in moment['observation']['appear'] :
+                    print it["x"], it["y"], it["z"], it["yaw"]
+                    VT[i]["name"] = it["name"]
+                    VT[i]["valence"]["food"] = FOOD_VALUES[it["name"]]
+                    VT[i]["valence"]["water"] = WATER_VALUES[it["name"]]
+                    VT[i]["Iext"] = 1.
+                    i += 1
+
+                SendChat(str(moment['observation']['appear']))
+
+
 
         if world_state.number_of_rewards_since_last_state > 0:
             # A reward signal has come in - see what it is:

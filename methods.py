@@ -2,6 +2,7 @@ import json
 import numpy as np
 from pprint import pprint
 from sample_data import *
+from constants import *
 
 debug = False
 
@@ -36,6 +37,7 @@ def setContext(moment, reach, see):
 
 def setCues(moment, x, z, far_entities):
     for ent in far_entities:
+        if ent["name"] == AGENT_NAME : continue
         #(For the points on the left of the agent, inFOV calculation is the same
         # by transforming the point to the right of the agent
         ex, ez = ent["x"], ent["z"]

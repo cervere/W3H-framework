@@ -6,7 +6,8 @@ valence = [("food",  float),
 
 motion = [("command", str), ("Iext", float)]
 
-vttype = [("valence",  valence),
+vttype = [("name",  str),
+           ("valence",  valence),
            ("Iext", float)]
 
 global weights, VT, BG, MMA, PC
@@ -32,4 +33,4 @@ def propagate() :
     OneToOne(BG, MMA["Iext"], weights)
 
 propagate()
-print MMA
+print VT, MMA
