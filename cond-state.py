@@ -36,7 +36,7 @@ def GetMissionXML(summary, itemDrawingXML):
         </ServerSection>
 
         <AgentSection mode="Survival">
-            <Name>The Hungry Caterpillar</Name>
+            <Name>OSS 117</Name>
             <AgentStart>
                 <Placement x="5.5" y="227.0" z="-49.5"/>
                 <Inventory>

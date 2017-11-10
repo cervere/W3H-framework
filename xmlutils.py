@@ -1,6 +1,11 @@
 from methods import getBlocks,getCuboids,getItems
 from data import *
+from data_basic import *
 
+global x, y, z, START_POINT
+
+x, y, z = 0, 1, 2
+START_POINT = (0.5, 227, 0.5)
 
 def GetMissionXML(summary, itemDrawingXML):
     ''' Build an XML mission string that uses the RewardForCollectingItem mission handler.'''
@@ -23,9 +28,12 @@ def GetMissionXML(summary, itemDrawingXML):
         </ServerSection>
 
         <AgentSection mode="Survival">
-            <Name>The Hungry Caterpillar</Name>
+            <Name>OSS 117</Name>
             <AgentStart>
-                <Placement x="5.5" y="227.0" z="-49.5"/>
+                <Placement x=
+                "''' + str(START_POINT[x]) + '''" y=
+                "''' + str(START_POINT[y]) + '''" z=
+                "''' + str(START_POINT[z]) + '''"/>
                 <Inventory>
                     <InventoryItem slot="8" type="diamond_pickaxe"/>
                 </Inventory>
@@ -75,7 +83,7 @@ def GetMissionXML(summary, itemDrawingXML):
     </Mission>'''
 
 
-def GetItemDrawingXML():
+def GetItemDrawingXML(testing=False):
     ''' Build the required blocks, items and the type of floor'''
-    #return str(getCuboids(floor))# + getBlocks(blocks) + getItems(items))
-    return str(getCuboids(floor) + getItems(items) + getBlocks(blocks))
+    if testing : return str(getCuboids(floor_basic) + getBlocks(blocks_basic) + getItems(items_basic))
+    else : return str(getCuboids(floor) + getItems(items) + getBlocks(blocks))

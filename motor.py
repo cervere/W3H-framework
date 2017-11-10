@@ -75,7 +75,7 @@ with open('moment.json') as fp:
 
 
 jumping = False
-itemdrawingxml = GetItemDrawingXML()
+itemdrawingxml = GetItemDrawingXML(testing=True)
 for iRepeat in range(num_reps):
     my_mission = MalmoPython.MissionSpec(GetMissionXML("Explore the world" , itemdrawingxml),validate)
     # Set up a recording
@@ -124,32 +124,14 @@ for iRepeat in range(num_reps):
             see = np.asarray(ob.get(u'see', 0))
             appear = np.asarray(ob.get(u'appear', 0))
 
-            # For some debugging
-            if ob.get(u'WorldTime', -1) > 100 and ob.get(u'WorldTime', -1) < 110 :
-                observations["data"].append(ob)
-                pprint(ob)
-
             moment = copy.copy(base_moment)
             prepareMoment(moment, ob)
 
-
-
-            if "close_entities" in ob:
-                entities = [EntityInfo(**k) for k in ob["close_entities"]]
-                for ent in entities:
-                    print ''#'Close ent : ' + str(ent.name) +  ',' + str(ent.quantity)
-
-            if jumping and reach[4]!=u'lava':
-                agent_host.sendCommand("jump 0")
-                jumping = False
-                energy -= 1
-                SendChat("Spending energy to JUMP. Energy left : "+str(energy))
-            if reach[1]==u'cobblestone':
-                currentSequence = TURN_RIGHT
-            elif reach[4]==u'lava':
-                agent_host.sendCommand("jump 1")
-                jumping = True
-
+            # For some debugging
+            if len(moment['observation']['appear']) > 1 :
+                observations["data"].append(ob)
+                pprint(moment)
+                currentSequence = "move 0"
 
         if world_state.number_of_rewards_since_last_state > 0:
             # A reward signal has come in - see what it is:

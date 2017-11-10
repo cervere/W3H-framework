@@ -1,11 +1,12 @@
 import json
 from pprint import pprint
 
-blocks = json.loads('''
+blocks_basic = json.loads('''
 {
 "config" : [
         {
             "type" : "lava",
+            "active" : "False",
             "points" : [
                         "(5,226,9)", "(5,226,14)", "(5,226,19)",
                         "(5,226,29)", "(5,226,39)"
@@ -21,10 +22,12 @@ blocks = json.loads('''
         },
         {
             "type" : "gravel",
+            "active" : "False",
             "points" : ["(5,226,50)"]
         },
         {
             "type" : "cobblestone",
+            "active" : "False",
             "points" : [
                         "(5,226,35)", "(5,226,15)", "(5,226,-5)",
                         "(5,226,-25)", "(5,226,-45)"
@@ -34,21 +37,17 @@ blocks = json.loads('''
 }
 ''')
 
-floor = json.loads('''
+floor_basic = json.loads('''
 {
 "config" : [
         {
             "type" : "sandstone",
-            "points" : ["{(-50,226,-50):(50,226,50)}"]
+            "points" : ["{(-50,226,0):(50,226,50)}"]
         },
         {
             "type" : "lapis_block",
             "points" : [
-                "{(3,226,-50):(7,226,-40)}",
-                "{(3,226,-30):(7,226,-20)}",
-                "{(3,226,-10):(7,226,0)}",
-                "{(3,226,10):(7,226,20)}",
-                "{(3,226,30):(7,226,40)}"
+                "{(0,226,0):(0,226,50)}"
             ]
         },
         {
@@ -66,22 +65,31 @@ floor = json.loads('''
 }
 ''')
 
-items = json.loads('''
+items_basic = json.loads('''
 {
 "config" : [
         {
+            "type" : "cake",
+            "points" : [
+                "(6,226,25)"
+            ]
+        },
+        {
             "type" : "apple",
             "points" : [
-                "(2,226,-42)", "(2,226,-22)", "(2,226,-2)",
-                "(2,226,18)", "(2,226,38)"
-                , "(4,227,-49)"
+                "(3,226,25)"
             ]
         },
         {
             "type" : "water_bucket",
             "points" : [
-                "(2,226,-32)", "(2,226,-12)", "(2,226,-2)",
-                "(2,226,18)", "(2,226,38)"
+                "(-3,226,25)"
+            ]
+        },
+        {
+            "type" : "mushroom_stew",
+            "points" : [
+                "(-6,226,25)"
             ]
         }
     ]

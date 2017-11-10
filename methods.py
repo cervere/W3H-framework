@@ -55,8 +55,8 @@ def prepareMoment(moment, ob):
     as better representation for the models
     '''
     moment['globalTime'] = ob.get(u'WorldTime', 0)
-    setPosition(moment, ob.get(u'XPos', 0), ob.get(u'YPos', 0), ob.get(u'ZPos', 0),
-                ob.get(u'Yaw', 0),ob.get(u'Pitch', 0))
+    x, y, z, yaw, pitch = ob.get(u'XPos', 0), ob.get(u'YPos', 0), ob.get(u'ZPos', 0), ob.get(u'Yaw', 0),ob.get(u'Pitch', 0)
+    setPosition(moment, x, y, z, yaw, pitch)
     '''
     Context is considered only from 'REACH' and 'SEE' zones. And it is a weighted
     list of all the block types present in both the zones
