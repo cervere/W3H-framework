@@ -13,6 +13,7 @@ from collections import namedtuple
 from methods import prepareMoment
 from xmlutils import GetMissionXML, GetItemDrawingXML
 from constants import *
+from motorloop import *
 
 #### Grid data goes to context
 #### ObservationsFromNearby goes to cues / items with locations
@@ -23,6 +24,8 @@ EntityInfo.__new__.__defaults__ = (0, 0, 0, "", 1)
 
 
 
+def SendCommand(command):
+    agent_host.sendCommand(command)
 
 def SendChat(msg):
     agent_host.sendCommand( "chat " + msg )
@@ -139,14 +142,24 @@ for iRepeat in range(num_reps):
                 print moment['state']['location']
                 i = 0
                 for it in moment['observation']['appear'] :
-                    print it["x"], it["y"], it["z"], it["yaw"]
-                    VT[i]["name"] = it["name"]
+                    print it["x"], it["y"], it["z"], it["yaw"], it["name"]
+                    VT[i]["name"] = str(it["name"])
                     VT[i]["valence"]["food"] = FOOD_VALUES[it["name"]]
                     VT[i]["valence"]["water"] = WATER_VALUES[it["name"]]
                     VT[i]["Iext"] = 1.
+                    MMA[i]["command"] = "setYaw " + str(it["yaw"])
+                    print "setting " + "setYaw " + str(it["yaw"])
                     i += 1
 
-                SendChat(str(moment['observation']['appear']))
+                propagate()
+
+                print VT
+                k = np.argmax(MMA["Iext"])
+                print k
+                print MMA[k]["command"]
+
+                SendChat(MMA[np.argmax(MMA["Iext"])]["command"])
+                SendCommand(MMA[np.argmax(MMA["Iext"])]["command"])
 
 
 

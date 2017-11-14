@@ -12,8 +12,8 @@ HUNGER_LIMIT = 20
 HUNGER_RATE_INC = {"move" : 1, "jump" : 3}
 HUNGER_RATE_DEC = {"consume" : 3}
 
-FOOD_VALUES = {"apple" : 9, "cookie" : 7, "water_bucket" : 3, "mushroom_stew" : 4}
-WATER_VALUES = {"apple" : 2, "cookie" : 1, "water_bucket" : 9, "mushroom_stew" : 7}
+FOOD_VALUES = {"apple" : 9, "cake" : 7, "water_bucket" : 3, "mushroom_stew" : 4}
+WATER_VALUES = {"apple" : 2, "cake" : 1, "water_bucket" : 9, "mushroom_stew" : 7}
 
 '''
     ACTIONS
