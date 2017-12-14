@@ -10,13 +10,13 @@ vttype = [("name",  str),
            ("valence",  valence),
            ("Iext", float)]
 
-global weights, VT, BG, MMA, PC
+global weights, VT, BG, PMA, PC
 
 weights = np.asarray([.5] * 4)
 
 VT = np.zeros(4, vttype) # Just the representative feature of each stimulus. For eg : stim1 = ("food" : 8, "water" : 1)
 
-MMA = np.zeros(4, motion) # The motor command that will lead to respective stimulus in VT. For eg : mot1 = {"yaw" : 45, move : 1, "expected" : (x,y)}
+PMA = np.zeros(4, motion) # The motor command that will lead to respective stimulus in VT. For eg : mot1 = {"yaw" : 45, move : 1, "expected" : (x,y)}
 
 PC = (0,0) # gives current location - (x,y)
 
@@ -30,7 +30,7 @@ def OneToOne(source, target, weights) :
 
 def propagate() :
     OneToOne(VT["Iext"], BG, weights)
-    OneToOne(BG, MMA["Iext"], weights)
+    OneToOne(BG, PMA["Iext"], weights)
 
 #propagate()
-print VT, MMA
+print VT, PMA

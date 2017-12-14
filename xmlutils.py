@@ -19,7 +19,7 @@ def GetMissionXML(summary, itemDrawingXML):
 
         <ServerSection>
             <ServerHandlers>
-                <FlatWorldGenerator generatorString="3;7,220*1,5*3,2;3;,biome_1" forceReset="true"/>
+                <FlatWorldGenerator generatorString="3;7,220*1,5*3,2;3;,biome_1" forceReset="false"/>
                 <DrawingDecorator>
                 ''' + itemDrawingXML + '''
                 </DrawingDecorator>

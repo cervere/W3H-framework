@@ -4,14 +4,13 @@ import random
 import sys
 import time
 import json
-import random
 import errno
 import numpy as np
 from collections import namedtuple
 from methods import getBlocks,getCuboids,getItems
 from data import *
 
-EntityInfo = namedtuple('EntityInfo', 'x, y, z, name, quantity, yaw, pitch')
+EntityInfo = namedtuple('EntityInfo', 'x, y, z, name, quantity, yaw, pitch, life')
 EntityInfo.__new__.__defaults__ = (0, 0, 0, "", 1)
 
 
@@ -26,7 +25,7 @@ def GetMissionXML(summary, itemDrawingXML):
 
         <ServerSection>
             <ServerHandlers>
-                <FlatWorldGenerator generatorString="3;7,220*1,5*3,2;3;,biome_1" forceReset="true"/>
+                <FlatWorldGenerator generatorString="3;7,220*1,5*3,2;3;,biome_1" forceReset="false"/>
                 <DrawingDecorator>
                 ''' + itemDrawingXML + '''
                 </DrawingDecorator>
@@ -201,7 +200,7 @@ for iRepeat in range(num_reps):
                 energy -= 1
                 SendChat("Spending energy to JUMP. Energy left : "+str(energy))
             if grid[4]==u'cobblestone':
-                currentSequence = turnSequence
+                currentSequence = random.choice([leftTurnSequence, rightTurnSequence])
             elif grid[16]==u'stone' and currentSequence == '':
                 #currentSequence = "move 0"
                 currentSequence = "hotbar.9 1; hotbar.9 0; pitch 1; wait 5; pitch 0; attack 1; wait 5; attack 0; pitch -1; wait 5; pitch 0"
