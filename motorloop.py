@@ -1,22 +1,22 @@
 import numpy as np
 import random
 
-valence = [("food",  float),
-           ("water", float)]
+valence = [("food",  'float64'),
+           ("water", 'float64')]
 
-motion = [("command", str), ("Iext", float)]
+motion = [("command", '|S64'), ("Iext", 'float64')]
 
-vttype = [("name",  str),
+vttype = [("name",  '|S64'),
            ("valence",  valence),
-           ("Iext", float)]
+           ("Iext", 'float64')]
 
-global weights, VT, BG, PMA, PC
+global weights, VT, BG, MMA, PC
 
 weights = np.asarray([.5] * 4)
 
 VT = np.zeros(4, vttype) # Just the representative feature of each stimulus. For eg : stim1 = ("food" : 8, "water" : 1)
 
-PMA = np.zeros(4, motion) # The motor command that will lead to respective stimulus in VT. For eg : mot1 = {"yaw" : 45, move : 1, "expected" : (x,y)}
+MMA = np.zeros(4, motion) # The motor command that will lead to respective stimulus in VT. For eg : mot1 = {"yaw" : 45, move : 1, "expected" : (x,y)}
 
 PC = (0,0) # gives current location - (x,y)
 
@@ -30,7 +30,7 @@ def OneToOne(source, target, weights) :
 
 def propagate() :
     OneToOne(VT["Iext"], BG, weights)
-    OneToOne(BG, PMA["Iext"], weights)
+    OneToOne(BG, MMA["Iext"], weights)
 
 #propagate()
-print VT, PMA
+print VT, MMA

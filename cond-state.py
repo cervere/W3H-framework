@@ -158,14 +158,8 @@ for iRepeat in range(num_reps):
     turncount = 0   # for counting turn time.
     count = 0   # for counting turn time.
     waitCycles = 0
-    rightTurnSequence  = ""#move 1; wait 10;"
-    rightTurnSequence += "setYaw 45; wait 10;"
-    rightTurnSequence += "setYaw -45; wait 10; tpx 5.33;"
-    rightTurnSequence += "setYaw 0; "
-    leftTurnSequence  = ""#move 1; wait 10;"
-    leftTurnSequence += "setYaw 45; wait 10;"
-    leftTurnSequence += "setYaw -45; wait 10; tpx 5.33;"
-    leftTurnSequence += "setYaw 0; "
+    rightTurnSequence  = "setYaw 45; wait 10; setYaw -45; wait 10; tpx 5.33; setYaw 0; "
+    leftTurnSequence  = "setYaw 45; wait 10; setYaw -45; wait 10; tpx 5.33; setYaw 0; "
     currentSequence = "move 1;"
     energy = 20
     observations = {"data" : []}
@@ -175,11 +169,8 @@ for iRepeat in range(num_reps):
             if waitCycles > 0: waitCycles -= 1
             msg = world_state.observations[-1].text
             ob = json.loads(msg)
-            current_x = ob.get(u'XPos', 0)
-            current_z = ob.get(u'ZPos', 0)
-            current_y = ob.get(u'YPos', 0)
-            yaw = ob.get(u'Yaw', 0)
-            pitch = ob.get(u'Pitch', 0)
+            current_x, current_z, current_y = ob.get(u'XPos', 0), ob.get(u'ZPos', 0), ob.get(u'YPos', 0)
+            yaw, pitch = ob.get(u'Yaw', 0), ob.get(u'Pitch', 0)
             grid = np.asarray(ob.get(u'floor3x3', 0))
             observations["data"].append(ob)
             print grid.size

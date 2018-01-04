@@ -30,7 +30,7 @@ import json
 import random
 import errno
 from collections import namedtuple
-EntityInfo = namedtuple('EntityInfo', 'x, y, z, name, quantity, yaw, pitch')
+EntityInfo = namedtuple('EntityInfo', 'x, y, z, name, quantity, yaw, pitch, life')
 EntityInfo.__new__.__defaults__ = (0, 0, 0, "", 1)
 
 def GetMissionXML(summary, itemDrawingXML):
@@ -127,7 +127,7 @@ def GetItemDrawingXML():
         #type = random.choice(["sugar", "cake", "cookie", "pumpkin_pie", "fish", "porkchop", "beef", "chicken", "rabbit", "mutton", "potato", "egg", "carrot", "apple", "melon"])
         type = random.choice(["apple"])
         xml += '''<DrawItem x="''' + x + '''" y="227" z="''' + z + '''" type="''' + type + '''"/>'''
-        xml += '''<DrawCuboid type="stone" x1="''' + x0 + '''" y1="227" z1="''' + z0 + '''" x2="''' + x0 + '''" y2="227" z2="''' + z0 + '''"/>'''
+        #xml += '''<DrawCuboid type="stone" x1="''' + x0 + '''" y1="227" z1="''' + z0 + '''" x2="''' + x0 + '''" y2="227" z2="''' + z0 + '''"/>'''
     return xml
 
 def SendChat(msg):

@@ -116,11 +116,12 @@ for iRepeat in range(num_reps):
     while world_state.is_mission_running:
         world_state = agent_host.getWorldState()
         if world_state.number_of_observations_since_last_state > 0:
-            # A rough way of each time instance should be
-            # Observe(Environment)
-            # Perceive(Observations)
-            # Act(Observations, Perception)
-
+            '''
+             Roughly, at each time instance, the following sequence can be observed :
+             Observe(Environment)
+             Perceive(Observations)
+             Act(Observations, Perception)
+            '''
             if waitCycles > 0: waitCycles -= 1
             msg = world_state.observations[-1].text
             ob = json.loads(msg)
@@ -147,8 +148,8 @@ for iRepeat in range(num_reps):
                     VT[i]["valence"]["food"] = FOOD_VALUES[it["name"]]
                     VT[i]["valence"]["water"] = WATER_VALUES[it["name"]]
                     VT[i]["Iext"] = 1.
-                    MMA[i]["command"] = "setYaw " + str(it["yaw"])
-                    print "setting " + "setYaw " + str(it["yaw"])
+                    MMA["command"][i] = "setYaw " + str(it["yaw"])
+                    print "--" + MMA["command"][i]
                     i += 1
 
                 propagate()
@@ -156,7 +157,7 @@ for iRepeat in range(num_reps):
                 print VT
                 k = np.argmax(MMA["Iext"])
                 print k
-                print MMA[k]["command"]
+                print MMA
 
                 SendChat(MMA[np.argmax(MMA["Iext"])]["command"])
                 SendCommand(MMA[np.argmax(MMA["Iext"])]["command"])
