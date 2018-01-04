@@ -3,6 +3,7 @@ import numpy as np
 from pprint import pprint
 from sample_data import *
 from constants import *
+import math
 
 debug = False
 
@@ -35,7 +36,23 @@ def setContext(moment, reach, see):
     for x, y in zip(elements, strengths) :
         moment['observation']['context'][x] = y
 
+def getYawDelta(targetx, targetz, sourcex, sourcez, syaw) :
+    dx = (targetx - sourcex)
+    dz = (targetz - sourcez)
+    targetYaw = (math.atan2(dz, dx) * 180.0/np.pi) - 90
+    # Find shortest angular distance between the two yaws, preserving sign:
+    difference = targetYaw - syaw
+    while (difference < -180) :
+        difference += 360
+    while (difference > 180) :
+        difference -= 360
+        # Normalise:
+    #difference /= 180.0
+    return difference
+
 def setCues(moment, x, z, far_entities):
+    sx, sz = moment['state']['location']['position']['x'], moment['state']['location']['position']['z']
+    syaw = moment['state']['location']['orientation']["yaw"]
     for ent in far_entities:
         if ent["name"] == AGENT_NAME : continue
         #(For the points on the left of the agent, inFOV calculation is the same
@@ -43,7 +60,7 @@ def setCues(moment, x, z, far_entities):
         ex, ez = ent["x"], ent["z"]
         trans_point = [ex, ez]
         if ex > x : trans_point[0] = 2*x - ex
-
+        ent['yaw'] = getYawDelta(ex, ez, sx, sz, syaw)
         zdist = abs(ez - z)
 
         if zdist <= APPEAR_SCOPE and inFOV([x, z], trans_point):

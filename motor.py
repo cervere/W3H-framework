@@ -132,15 +132,14 @@ for iRepeat in range(num_reps):
 
             moment = copy.copy(base_moment)
             prepareMoment(moment, ob)
-
+            print "Obs : " + str(ob.get(u'far_entities', []))
             # For some debugging
             if moving and len(moment['observation']['appear']) > 0 : #The agent name is excluded already in preparing the moment
                 observations["data"].append(ob)
                 pprint(moment)
-                currentSequence = "move 0"
+                SendCommand("move 0")
                 moving = False
                 SendChat('Few options appear. Will evaluate using motor loop!')
-                print moment['state']['location']
                 i = 0
                 for it in moment['observation']['appear'] :
                     print it["x"], it["y"], it["z"], it["yaw"], it["name"]
@@ -148,20 +147,17 @@ for iRepeat in range(num_reps):
                     VT[i]["valence"]["food"] = FOOD_VALUES[it["name"]]
                     VT[i]["valence"]["water"] = WATER_VALUES[it["name"]]
                     VT[i]["Iext"] = 1.
-                    MMA["command"][i] = "setYaw " + str(it["yaw"])
-                    print "--" + MMA["command"][i]
+                    MMA["command"][i] = "setYaw " + str(it["yaw"]) + "; move 1; wait 3; tpx " + str(it["x"]) + "; "
                     i += 1
 
                 propagate()
 
-                print VT
                 k = np.argmax(MMA["Iext"])
-                print k
-                print MMA
 
                 SendChat(MMA[np.argmax(MMA["Iext"])]["command"])
-                SendCommand(MMA[np.argmax(MMA["Iext"])]["command"])
-
+                currentSequence = MMA[np.argmax(MMA["Iext"])]["command"] + " move 0; wait 5; tpx 0.5; setYaw 0; move 1;"
+                #SendCommand(MMA[np.argmax(MMA["Iext"])]["command"])
+                #SendCommand("move 1")
 
 
         if world_state.number_of_rewards_since_last_state > 0:
@@ -182,6 +178,9 @@ for iRepeat in range(num_reps):
                     waitCycles = int(param.strip())
                 else:
                     agent_host.sendCommand(command) # Send the command to Minecraft.
+                    if command == 'move 1' :
+                        print "changing moving"
+                        moving = True
 
         time.sleep(0.1)
     with open('observations.json', 'w') as fp:
