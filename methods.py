@@ -53,6 +53,8 @@ def getYawDelta(targetx, targetz, sourcex, sourcez, syaw) :
 def setCues(moment, x, z, far_entities):
     sx, sz = moment['state']['location']['position']['x'], moment['state']['location']['position']['z']
     syaw = moment['state']['location']['orientation']["yaw"]
+    moment['observation']['appear'] = []
+
     for ent in far_entities:
         if ent["name"] == AGENT_NAME : continue
         #(For the points on the left of the agent, inFOV calculation is the same

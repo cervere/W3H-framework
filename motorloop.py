@@ -10,7 +10,7 @@ vttype = [("name",  '|S64'),
            ("valence",  valence),
            ("Iext", 'float64')]
 
-global weights, VT, BG, MMA, PC
+global weights, VT, BG, MMA, PC, OFC
 
 weights = np.asarray([.5] * 4)
 
@@ -21,6 +21,10 @@ MMA = np.zeros(4, motion) # The motor command that will lead to respective stimu
 PC = (0,0) # gives current location - (x,y)
 
 BG = np.zeros(4)
+
+OFC = np.sort(np.random.rand(8)/5)[-4:] #4 random numbers with a pre-registered preference value
+
+
 
 #VT[:] = 1
 

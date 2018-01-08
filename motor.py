@@ -132,7 +132,7 @@ for iRepeat in range(num_reps):
 
             moment = copy.copy(base_moment)
             prepareMoment(moment, ob)
-            print "Obs : " + str(ob.get(u'far_entities', []))
+            #print "Obs : " + str(ob.get(u'far_entities', []))
             # For some debugging
             if moving and len(moment['observation']['appear']) > 0 : #The agent name is excluded already in preparing the moment
                 observations["data"].append(ob)
@@ -155,7 +155,7 @@ for iRepeat in range(num_reps):
                 k = np.argmax(MMA["Iext"])
 
                 SendChat(MMA[np.argmax(MMA["Iext"])]["command"])
-                currentSequence = MMA[np.argmax(MMA["Iext"])]["command"] + " move 0; wait 5; tpx 0.5; setYaw 0; move 1;"
+                currentSequence = MMA[np.argmax(MMA["Iext"])]["command"] + " move 0; wait 5; tpx 0.5; setYaw 0; wait 5; move 1;"
                 #SendCommand(MMA[np.argmax(MMA["Iext"])]["command"])
                 #SendCommand("move 1")
 
