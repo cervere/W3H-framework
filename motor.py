@@ -81,6 +81,12 @@ moving = True
 
 jumping = False
 itemdrawingxml = GetItemDrawingXML(testing=True)
+
+def printLevels(hunger, thirst, energy) :
+    return "Hunger ("+ str(hunger) +"); Thirst ("+ str(thirst) +"); Energy ("+ str(energy) +")"
+
+global Insula_hunger, Insula_thirst, Insula_energy
+
 for iRepeat in range(num_reps):
     my_mission = MalmoPython.MissionSpec(GetMissionXML("Explore the world" , itemdrawingxml),validate)
     # Set up a recording
@@ -107,20 +113,43 @@ for iRepeat in range(num_reps):
         world_state = agent_host.getWorldState()
 
     reward = 0.0    # keep track of reward for this mission.
-    turncount = 0   # for counting turn time.
-    count = 0   # for counting turn time.
     waitCycles = 0
     currentSequence = "move 1;"
-    energy = 20
     observations = {"data" : []}
     while world_state.is_mission_running:
+        updateInsulaWithTime()
         world_state = agent_host.getWorldState()
         if world_state.number_of_observations_since_last_state > 0:
             '''
              Roughly, at each time instance, the following sequence can be observed :
              Observe(Environment)
+                * Internal
+                    * Hunger, Thirst, Well-being - (Get this from Insula)
+            '''
+            SendChat('My current levels are : ' + printLevels(Insula_hunger,Insula_thirst, Insula_energy))
+            '''
+                * External
+                    * Appear, See, Reach zones
              Perceive(Observations)
+                * Internal
+                    * Search with a goal / Explore randomly
+                * External
+                    * What is it?
+                    * Where is it? If it is in :
+                         - Appear : access only location, not values^, move towards the C.O.G of all the objects
+                         - See : access location, estimate values and the desiredness
+                         - Reach : Verify if it is the one of interest.
+                         ^ - Later with context, appear also could give some value.
+                    * "estimate values" - What values does it change?
+                    * "desiredness"- Do I need/want that change?
              Act(Observations, Perception)
+                * Search (MOVE with random exploration, no location target but some desired value)
+                    * Involves just turn to look for things which "appeared" but not anymore in "see" zone
+                * Reach (MOVE towards a particular target, because it is decided to be interesting in the previous moment)
+                    * Involves orienting, turning, moving towards.
+                * Consume - If the interest is still ON, consume, update the respective values^^.
+                    ^^ - Later the consumption could be gradual over time, instead of an instantaneous update.
+
             '''
             if waitCycles > 0: waitCycles -= 1
             msg = world_state.observations[-1].text
@@ -159,11 +188,14 @@ for iRepeat in range(num_reps):
                 #SendCommand(MMA[np.argmax(MMA["Iext"])]["command"])
                 #SendCommand("move 1")
 
-
+        '''
+        The internal reward processing can be handled later.
+        At this moment, rewards (or changes because of consumption) are handled explicitly
         if world_state.number_of_rewards_since_last_state > 0:
             # A reward signal has come in - see what it is:
             delta = world_state.rewards[0].getValue()
             energy += delta
+        '''
         if waitCycles == 0:
         # Time to execute the next command, if we have one:
             if currentSequence != "":
