@@ -165,7 +165,7 @@ for iRepeat in range(num_reps):
             # For some debugging
             if moving and len(moment['observation']['appear']) > 0 : #The agent name is excluded already in preparing the moment
                 observations["data"].append(ob)
-                pprint(moment)
+                #pprint(moment)
                 SendCommand("move 0")
                 moving = False
                 SendChat('Few options appear. Will evaluate using motor loop!')

@@ -111,6 +111,7 @@ items_basic = json.loads('''
 "config" : [
         {
             "type" : "cake",
+            "active" : "True",
             "points" :
             '''
             + CAKE_POINTS +
@@ -125,6 +126,7 @@ items_basic = json.loads('''
         },
         {
             "type" : "water_bucket",
+            "active" : "True",
             "points" :
             '''
             + WATER_BUCKET_POINTS +
@@ -132,6 +134,7 @@ items_basic = json.loads('''
         },
         {
             "type" : "mushroom_stew",
+            "active" : "True",
             "points" :
             '''
             + MUSHROOM_STEW_POINTS +

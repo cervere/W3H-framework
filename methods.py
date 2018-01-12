@@ -4,16 +4,17 @@ from pprint import pprint
 from sample_data import *
 from constants import *
 import math
+import matplotlib.pyplot as plt
 
 debug = False
 
 REACH_SCOPE = 1
 SEE_SCOPE = 3
 APPEAR_SCOPE = 5
+AGENT_FOV = np.pi * (2./3)
 
 
-
-def inFOV (agent, item, fov=np.pi * (1./2)) :
+def inFOV (agent, item, fov=AGENT_FOV) :
     m = np.tan(fov/2)
     c = agent[1] - m*agent[0]
     x = (item[1] - c) / m
@@ -55,6 +56,7 @@ def setCues(moment, x, z, far_entities):
     syaw = moment['state']['location']['orientation']["yaw"]
     moment['observation']['appear'] = []
 
+
     for ent in far_entities:
         if ent["name"] == AGENT_NAME : continue
         #(For the points on the left of the agent, inFOV calculation is the same
@@ -69,6 +71,8 @@ def setCues(moment, x, z, far_entities):
             if   zdist <= REACH_SCOPE : moment['observation']['reach'].append(ent)
             elif zdist <= SEE_SCOPE   : moment['observation']['see'].append(ent)
             else                      : moment['observation']['appear'].append(ent)
+
+
 
 def prepareMoment(moment, ob):
     ''' Takes malmo object at each instant and forms a moment

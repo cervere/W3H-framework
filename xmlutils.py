@@ -23,7 +23,7 @@ def GetMissionXML(summary, itemDrawingXML):
                 <DrawingDecorator>
                 ''' + itemDrawingXML + '''
                 </DrawingDecorator>
-                <ServerQuitFromTimeUp timeLimitMs="50000"/>
+                <ServerQuitFromTimeUp timeLimitMs="20000"/>
                 <ServerQuitWhenAnyAgentFinishes />
             </ServerHandlers>
         </ServerSection>
@@ -45,8 +45,8 @@ def GetMissionXML(summary, itemDrawingXML):
                 <AbsoluteMovementCommands/>
                 <DiscreteMovementCommands />
                 <VideoProducer>
-                    <Width>480</Width>
-                    <Height>320</Height>
+                    <Width>960</Width>
+                    <Height>640</Height>
                 </VideoProducer>
                 <RewardForCollectingItem>
                     <Item reward="2" type="fish porkchop beef chicken rabbit mutton"/>

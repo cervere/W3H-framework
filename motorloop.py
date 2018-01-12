@@ -24,21 +24,43 @@ BG = np.zeros(4)
 
 OFC = np.sort(np.random.rand(8)/5)[-4:] #4 random numbers for a pre-registered preference value
 
-global Insula_hunger, Insula_thirst, Insula_energy
-Insula_hunger, Insula_thirst, Insula_energy = 0, 0, 100
+class Insula(object):
+    def __init__(self, hunger=0, thirst=0, energy=100):
+        self.hunger = hunger
+        self.thirst = thirst
+        self.energy = energy
+
+    def timeEffect(self) :
+        self.hunger += 1
+        self.thirst += 1
+        self.energy -= 1
+
+    def status(self) :
+        print 'Hunger : %4.2f, Thirst : %4.2f, Energy : %4.2f' % (self.hunger, self.thirst, self.energy)
+
+class PrimarySomatoSensoryCortex(object) :
+    def __init__(self, x=0, y=0, z=0, moving=False):
+        self.x, self.y, self.z = x, y, z
+        self.moving = moving
+
+class AnteriorCingulateCortex(object) :
+
+    '''
+        Refer the hunger and thirst values from Insula 1
+        Learn the expense rate as per movement and time
+        Estimate for each stimulus, the rough cost of action
+    '''
+    def __init__(self, insula):
+        self.insula = insula
+
+    def getCurrentHunger() :
+        return self.insula
+    def status(self) :
+        print 'From ACC : Hunger : %4.2f, Thirst : %4.2f' % (self.insula.hunger, self.insula.thirst)
 
 ACC = []
 
 #VT[:] = 1
-
-global dh, dth, de
-dh, dth, de = 1, 2, 1
-
-def updateInsulaWithTime() :
-    global Insula_hunger, Insula_thirst, Insula_energy, dh, dth, de
-    Insula_hunger += dh
-    Insula_thirst += dth
-    Insula_energy -= de
 
 def OneToOne(source, target, weights) :
     for i in range(target.shape[0]):
@@ -61,8 +83,33 @@ MC = np.zeros((10,10))
 ACC = np.zeros((10,10))
 
 actionMap = {
-"A1" : {"frere" : "", "fils" : "A11"},
+"A1" : {"frere" : "A2", "fils" : "A11"},
 "A11" : {"frere" : "A12", "fils" : ""},
+"A12" : {"frere" : "A13", "fils" : "A121"},
+"A121" : {"frere" : "A122", "fils" : ""},
+"A13" : {"frere" : "", "fils" : ""},
+}
+
+'''
+For ex :
+1) Eat
+    11) Search (Explore)
+        111) Walk until something in appear
+        112) Stop - return (x,y)
+    12) Locate
+        121) Get Location
+        122) Orient - return success of turning towards (x,y)
+    13) Reach
+        131) Plan to Reach
+        132) Move - return success of being at (x,y)
+    14) Consume
+        141) Some time to eat and in the end notify ACC that you ate.
+    15) Wait to see if satisfied.
+        151) return success that hunger is satisfied
+'''
+actionMap = {
+"EAT" : {"frere" : "", "fils" : "EXPLORE"},
+"EXPLORE" : {"frere" : "LOCATE", "fils" : ""},
 "A12" : {"frere" : "A13", "fils" : "A121"},
 "A121" : {"frere" : "A122", "fils" : ""},
 "A13" : {"frere" : "", "fils" : ""},
