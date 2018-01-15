@@ -28,34 +28,52 @@ OFC = np.sort(np.random.rand(8)/5)[-4:] #4 random numbers for a pre-registered p
 class MotorCortex(object) :
     def __init__(self):
         self.pop = np.zeros(4, motion)
-        self.grid = np.zeros((20,20)) + 0.1
-        self.gateActive = False
-        self.activeGate = [-1, -1]
+        self.grid = np.ones((20,20))
+        self.currentSequence = ''
+        self.activity = np.zeros((0,0)) + 0.1
+        self.state = "IDLE"
+
+    def process(self) :
+        if self.state in actionMap :
+            return actionMap[self.state]["act"]
 
 class BasalGanglia(object) :
     def __init__(self):
         self.pop = np.zeros(4)
+        self.warmup = False
         self.begin = False
+        self.MC_gates = np.zeros((20,20))
+        self.flagParSeq = []
+        self.acting = False
 
     def process(self, moment, MC) :
         # For simplicity, an initial condition, at t=10ms, we trigger EAT condition
-        if moment['globalTime'] == 25 :
-            eatens = actionMap["EAT"]["ens"]
-            MC.grid[eatens[0], eatens[1]] = 1
-            MC.gateActive = True
-            MC.activeGate = actionMap["EAT"]["ens"]
-        if not self.begin :
-            plotActivity(plt, MC.grid, 1, 122)
+        plot = False
+        if not self.warmup :
+            plot = True
+            plotNum = 222
+            state = "IDLE"
+            self.warmup = True
+            print 'Warming up [BG] : ' + str(moment['globalTime'])
+        elif not self.begin :
+            plot = True
+            plotNum = 224
+            state = "EAT"
             self.begin = True
             print 'Beginning at [BG] : ' + str(moment['globalTime'])
+
+        if plot :
+            plotActivity(plt, MC.activity, 1, plotNum)
 
 class VisualCortex(object) :
     def __init__(self, MC):
         self.pop = np.zeros(4, vttype)
         self.MC = MC
+        self.warmup = False
         self.begin = False
 
     def process(self, moment) :
+        plot = True
         myLoc = moment['state']['location']['position']
         myX, myZ = myLoc["x"], myLoc["z"]
         obX , obZ, obYaws, obName = [], [], [], []
@@ -77,11 +95,17 @@ class VisualCortex(object) :
             VT[i]["Iext"] = 1.
             MMA["command"][i] = str(it["yaw"]) #"turn " + str(it["yaw"]) + "; move 1; wait 3; tpx " + str(it["x"]) + "; "
             i += 1
-        if not self.begin :
-            plotItems(myX, myZ, obX, obZ, obYaws, 1, 121)
-            self.begin = True
+        if not self.warmup :
+            self.warmup = True
+            plotNum = 221
+            print 'Warming up at [VC] : ' + str(moment['globalTime'])
+        elif not self.begin :
+            plotNum = 223
+            plotItems(myX, myZ, obX, obZ, obYaws, 1, 223)
             print 'Beginning at [VC] : ' + str(moment['globalTime'])
-
+            self.begin = True
+        else : plot = False
+        if plot : plotItems(myX, myZ, obX, obZ, obYaws, 1, plotNum)
 
 
 class Insula(object):
@@ -99,9 +123,10 @@ class Insula(object):
         print 'Hunger : %4.2f, Thirst : %4.2f, Energy : %4.2f' % (self.hunger, self.thirst, self.energy)
 
 class PrimarySomatoSensoryCortex(object) :
-    def __init__(self, x=0, y=0, z=0, moving=False):
+    def __init__(self, x=0, y=0, z=0, moving=False, turning=False):
         self.x, self.y, self.z = x, y, z
         self.moving = moving
+        self.turning = turning
 
 class AnteriorCingulateCortex(object) :
 
@@ -163,11 +188,14 @@ For ex :
         151) return success that hunger is satisfied
 '''
 actionMap = {
-"EAT" : {"frere" : "", "fils" : "EXPLORE", "act" : "", "ens" : [4, 10]},
-"EXPLORE" : {"frere" : "LOCATE", "fils" : "", "act" : "move 1", "ens" : [4, 10]},
-"A12" : {"frere" : "A13", "fils" : "A121", "act" : "", "ens" : [4, 10]},
-"A121" : {"frere" : "A122", "fils" : "", "act" : "", "ens" : [4, 10]},
-"A13" : {"frere" : "", "fils" : "", "act" : "", "ens" : [4, 10]},
+"IDLE" : {"next" : "EAT", "frere" : "", "fils" : "EAT", "act" : "", "ens" : [10, 0]},
+"EAT" : {"next" : "EXPLORE", "frere" : "IDLE", "fils" : "EXPLORE", "act" : "", "ens" : [10, 4], "OFF" : "IDLE"},
+"EXPLORE" : {"next" : "LOCATE", "frere" : "LOCATE", "fils" : "", "act" : "move 1", "ens" : [4, 10], "OFF" : ""},
+"LOCATE" : {"next" : "SPOT", "frere" : "REACH", "fils" : "SPOT", "act" : "move 0", "ens" : [4, 10], "OFF" : "EXPLORE"},
+"SPOT" : {"next" : "ORIENT", "frere" : "ORIENT", "fils" : "", "act" : "", "ens" : [4, 10], , "OFF" : ""},
+"ORIENT" : {"next" : "REACH", "frere" : "", "fils" : "", "act" : "turn ", "ens" : [4, 10], , "OFF" : "LOCATE"},
+"REACH" : {"next" : "CONSUME", "frere" : "CONSUME", "fils" : "", "act" : "move 1", "ens" : [4, 10], , "OFF" : ""},
+"CONSUME" : {"next" : "IDLE", "frere" : "", "fils" : "", "act" : "wait 10", "ens" : [4, 10], , "OFF" : "EAT"}
 }
 
 
