@@ -5,13 +5,14 @@ from sample_data import *
 from constants import *
 import math
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 debug = False
 
 REACH_SCOPE = 1
 SEE_SCOPE = 3
 APPEAR_SCOPE = 5
-AGENT_FOV = np.pi * (2./3)
+AGENT_FOV = np.pi * (1./2)
 
 
 def inFOV (agent, item, fov=AGENT_FOV) :
@@ -67,10 +68,12 @@ def setCues(moment, x, z, far_entities):
         ent['yaw'] = getYawDelta(ex, ez, sx, sz, syaw)
         zdist = abs(ez - z)
 
-        if zdist <= APPEAR_SCOPE and inFOV([x, z], trans_point):
-            if   zdist <= REACH_SCOPE : moment['observation']['reach'].append(ent)
-            elif zdist <= SEE_SCOPE   : moment['observation']['see'].append(ent)
-            else                      : moment['observation']['appear'].append(ent)
+        if zdist <= APPEAR_SCOPE :
+            if math.radians(np.abs(ent['yaw'])) < AGENT_FOV/2 :
+                if   zdist <= REACH_SCOPE : moment['observation']['reach'].append(ent)
+                elif zdist <= SEE_SCOPE   : moment['observation']['see'].append(ent)
+                else                      : moment['observation']['appear'].append(ent)
+            else : moment['observation']['viscinity'].append(ent)
 
 
 
@@ -200,4 +203,42 @@ if debug :
     print getBlocks(BLOCK_ITEM_SAMPLE)
     print getItems(BLOCK_ITEM_SAMPLE)
 
+
+def plotActivity(currPlt, structure, fig, subplot) :
+    # Assuming every structure is a 2D array of neuron ensembles with a value of activation
+    x, z = structure.shape
+    fig = currPlt.figure(fig)
+    ax = fig.add_subplot(subplot, projection='3d')
+    for zi in np.arange(z):
+        xs = np.arange(x)
+        ys = structure[zi]
+        cs = np.array(['c'] * x)
+        cs[(0.5<ys).nonzero()[0]] = 'b'
+        ax.bar(xs, ys, zs=zi, zdir='y', color=cs, alpha=0.8)
+    ax.set_xlabel('X')
+    ax.set_ylabel('Z')
+    ax.set_zlabel('Activity')
+    ax.set_zlim(0,1)
+
+colors = ['r', 'b', 'g', 'y']*2
+
+def plotItems(myX, myZ, obX, obZ, obYaws, fig, subplot) :
+    fig = plt.figure(fig)
+    ax = fig.add_subplot(subplot)
+    ax.plot(np.array(obX), np.array(obZ),'o')
+    ax.plot(myX, myZ, 'x')
+    for i in range(len(obYaws)) :
+        theta = math.radians(obYaws[i] + 90)
+        ax.arrow(myX, myZ, 4*math.cos(theta), 4*math.sin(theta), color=colors[i], label=i)
+    ax.arrow(myX, myZ, 14.14*math.cos(np.pi/2 - AGENT_FOV/2), 14.14*math.sin(np.pi/2 - AGENT_FOV/2), color='g')
+    ax.arrow(myX, myZ, 14.14*math.cos(np.pi/2 + AGENT_FOV/2), 14.14*math.sin(np.pi/2 + AGENT_FOV/2), color='g')
+    ax.set_xlim(xmin=-50, xmax=50)
+    ax.set_ylim(ymin=-50, ymax=50)
+    fig.gca().invert_xaxis()
+
+#struct = np.random.normal(.1, .05, (20,20))
+struct = np.zeros((20,20)) + .1
+#plotActivity(plt, struct)
+
+#plt.show()
 #printGrid(9,9)
