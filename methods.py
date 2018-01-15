@@ -56,6 +56,7 @@ def setCues(moment, x, z, far_entities):
     sx, sz = moment['state']['location']['position']['x'], moment['state']['location']['position']['z']
     syaw = moment['state']['location']['orientation']["yaw"]
     moment['observation']['appear'] = []
+    moment['observation']['viscinity'] = []
 
 
     for ent in far_entities:
@@ -204,11 +205,11 @@ if debug :
     print getItems(BLOCK_ITEM_SAMPLE)
 
 
-def plotActivity(currPlt, structure, fig, subplot) :
+def plotActivity(currPlt, structure, fig, num, label) :
     # Assuming every structure is a 2D array of neuron ensembles with a value of activation
     x, z = structure.shape
     fig = currPlt.figure(fig)
-    ax = fig.add_subplot(subplot, projection='3d')
+    ax = fig.add_subplot(num, projection='3d')
     for zi in np.arange(z):
         xs = np.arange(x)
         ys = structure[zi]
@@ -217,7 +218,7 @@ def plotActivity(currPlt, structure, fig, subplot) :
         ax.bar(xs, ys, zs=zi, zdir='y', color=cs, alpha=0.8)
     ax.set_xlabel('X')
     ax.set_ylabel('Z')
-    ax.set_zlabel('Activity')
+    ax.set_zlabel(label)
     ax.set_zlim(0,1)
 
 colors = ['r', 'b', 'g', 'y']*2

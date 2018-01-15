@@ -4,7 +4,9 @@ from methods import *
 valence = [("food",  'float64'),
            ("water", 'float64')]
 
-motion = [("command", '|S64'), ("Iext", 'float64')]
+targettype = [("yaw", 'float64'), ("pos", 'float64', 2)]
+
+motion = [("command", targettype), ("Iext", 'float64')]
 
 vttype = [("name",  '|S64'),
            ("valence",  valence),
@@ -12,8 +14,6 @@ vttype = [("name",  '|S64'),
 
 global weights #, VT, BG, MMA,
 global PC, OFC
-
-EAT = [4, 10]
 
 weights = np.asarray([.5] * 4)
 
@@ -32,10 +32,13 @@ class MotorCortex(object) :
         self.currentSequence = ''
         self.activity = np.zeros((0,0)) + 0.1
         self.state = "IDLE"
+        self.nextState = actionMap[self.state]["next"]
+        self.nextAction = actionMap[self.state]["act"]
 
     def process(self) :
         if self.state in actionMap :
-            return actionMap[self.state]["act"]
+            self.nextAction = actionMap[self.state]["act"]
+            self.state = self.nextState
 
 class BasalGanglia(object) :
     def __init__(self):
@@ -43,40 +46,51 @@ class BasalGanglia(object) :
         self.warmup = False
         self.begin = False
         self.MC_gates = np.zeros((20,20))
-        self.flagParSeq = []
         self.acting = False
 
-    def process(self, moment, MC) :
-        # For simplicity, an initial condition, at t=10ms, we trigger EAT condition
-        plot = False
-        if not self.warmup :
-            plot = True
-            plotNum = 222
-            state = "IDLE"
-            self.warmup = True
-            print 'Warming up [BG] : ' + str(moment['globalTime'])
-        elif not self.begin :
-            plot = True
-            plotNum = 224
-            state = "EAT"
-            self.begin = True
-            print 'Beginning at [BG] : ' + str(moment['globalTime'])
+    def process(self, moment, VC, MC) :
+        print "state requested " + MC.state, self.acting
+        if not self.acting and MC.state in actionMap :
+            #Gate ON in MC
+            ens = actionMap[MC.state]["ens"]
+            self.MC_gates[ens[0], ens[1]] = 1
+            off = actionMap[MC.state]["OFF"]
+            if off != "" and off in actionMap :
+                offens = actionMap[off]["ens"]
+                self.MC_gates[ens[0], ens[1]] = 0
+            MC.activity = MC.grid * self.MC_gates + np.random.normal(.1, .01, 1)
+            plotActivity(plt, MC.activity, 1, actionMap[MC.state]["plotNum"], MC.state)
+            if MC.state == "DECIDE" : self.decide(VC, MC)
+            MC.nextState = actionMap[MC.state]["next"]
+            #MC.nextAction = actionMap[MC.state]["act"]
 
-        if plot :
-            plotActivity(plt, MC.activity, 1, plotNum)
+    def decide(self, VC, MC) :
+        MMA = MC.pop
+        propagate(VC.pop, self.pop, MMA)
+        k = np.argmax(MMA["Iext"])
+        print MMA[k]["command"]
+        deltaTurn = MMA[k]["command"]["yaw"]
+        actionMap["ORIENT"]["act"] = 'turn '+ str(float(deltaTurn)/180.)
+        actionMap["REACH"]["target"] = MMA[k]["command"]["pos"]
+
+
+
 
 class VisualCortex(object) :
-    def __init__(self, MC):
+    def __init__(self, MC, PPC):
         self.pop = np.zeros(4, vttype)
         self.MC = MC
+        self.PPC = PPC
         self.warmup = False
         self.begin = False
 
     def process(self, moment) :
         plot = True
         myLoc = moment['state']['location']['position']
+        self.PPC.x, self.PPC.y, self.PPC.z = myLoc["x"], myLoc["y"], myLoc["z"]
         myX, myZ = myLoc["x"], myLoc["z"]
         obX , obZ, obYaws, obName = [], [], [], []
+        print self.MC.state, moment
         for it in moment['observation']['viscinity'] :
             obX.append(it["x"])
             obZ.append(it["z"])
@@ -93,7 +107,8 @@ class VisualCortex(object) :
             VT[i]["valence"]["food"] = FOOD_VALUES[it["name"]]
             VT[i]["valence"]["water"] = WATER_VALUES[it["name"]]
             VT[i]["Iext"] = 1.
-            MMA["command"][i] = str(it["yaw"]) #"turn " + str(it["yaw"]) + "; move 1; wait 3; tpx " + str(it["x"]) + "; "
+            MMA["command"][i]["yaw"] = it["yaw"]
+            MMA["command"][i]["pos"] = np.array([it["x"], it["z"]])
             i += 1
         if not self.warmup :
             self.warmup = True
@@ -105,7 +120,8 @@ class VisualCortex(object) :
             print 'Beginning at [VC] : ' + str(moment['globalTime'])
             self.begin = True
         else : plot = False
-        if plot : plotItems(myX, myZ, obX, obZ, obYaws, 1, plotNum)
+        if plot :
+            plotItems(myX, myZ, obX, obZ, obYaws, 2, plotNum)
 
 
 class Insula(object):
@@ -123,10 +139,32 @@ class Insula(object):
         print 'Hunger : %4.2f, Thirst : %4.2f, Energy : %4.2f' % (self.hunger, self.thirst, self.energy)
 
 class PrimarySomatoSensoryCortex(object) :
-    def __init__(self, x=0, y=0, z=0, moving=False, turning=False):
-        self.x, self.y, self.z = x, y, z
-        self.moving = moving
-        self.turning = turning
+    def __init__(self):
+        self.x, self.y, self.z = (0. ,0. ,0.)
+        self.pos = np.array([self.x, self.z])
+        self.yaw = 0.
+        self.moving = False
+        self.turning = False
+        self.waiting = False
+        self.eating = False
+        self.targetPos = np.array([self.x, self.z]) # Only (x, z)
+        self.targetYaw = 0.
+
+    def checks(self, BG, MC) :
+        if self.turning and np.abs(self.targetYaw - self.yaw) < 2 :
+            MC.nextAction = "turn 0"
+            self.turning = False
+            self.targetYaw = 0
+            BG.acting = False
+        if self.moving and np.linalg.norm(self.targetPos - self.pos) < 0.5 :
+            MC.nextAction = "move 0"
+            self.moving = False
+            self.targetPos = self.pos
+            BG.acting = False
+        #if np.sum(np.array([self.moving, self.turning, self.waiting, self.eating]) + np.zeros(4)) == 0 : BG.acting = False
+        #else : BG.acting = True
+
+
 
 class AnteriorCingulateCortex(object) :
 
@@ -188,14 +226,14 @@ For ex :
         151) return success that hunger is satisfied
 '''
 actionMap = {
-"IDLE" : {"next" : "EAT", "frere" : "", "fils" : "EAT", "act" : "", "ens" : [10, 0]},
-"EAT" : {"next" : "EXPLORE", "frere" : "IDLE", "fils" : "EXPLORE", "act" : "", "ens" : [10, 4], "OFF" : "IDLE"},
-"EXPLORE" : {"next" : "LOCATE", "frere" : "LOCATE", "fils" : "", "act" : "move 1", "ens" : [4, 10], "OFF" : ""},
-"LOCATE" : {"next" : "SPOT", "frere" : "REACH", "fils" : "SPOT", "act" : "move 0", "ens" : [4, 10], "OFF" : "EXPLORE"},
-"SPOT" : {"next" : "ORIENT", "frere" : "ORIENT", "fils" : "", "act" : "", "ens" : [4, 10], , "OFF" : ""},
-"ORIENT" : {"next" : "REACH", "frere" : "", "fils" : "", "act" : "turn ", "ens" : [4, 10], , "OFF" : "LOCATE"},
-"REACH" : {"next" : "CONSUME", "frere" : "CONSUME", "fils" : "", "act" : "move 1", "ens" : [4, 10], , "OFF" : ""},
-"CONSUME" : {"next" : "IDLE", "frere" : "", "fils" : "", "act" : "wait 10", "ens" : [4, 10], , "OFF" : "EAT"}
+"IDLE" : {"next" : "EAT", "frere" : "", "fils" : "EAT", "act" : "", "ens" : [10, 0], "OFF" : "", "plotNum" : 181},
+"EAT" : {"next" : "EXPLORE", "frere" : "IDLE", "fils" : "EXPLORE", "act" : "wait 1", "ens" : [10, 2], "OFF" : "IDLE", "plotNum" : 182},
+"EXPLORE" : {"next" : "LOCATE", "frere" : "LOCATE", "fils" : "", "act" : "move 1", "ens" : [4, 10], "OFF" : "", "plotNum" : 183},
+"LOCATE" : {"next" : "DECIDE", "frere" : "REACH", "fils" : "DECIDE", "act" : "move 0", "ens" : [4, 10], "OFF" : "EXPLORE", "plotNum" : 184},
+"DECIDE" : {"next" : "ORIENT", "frere" : "ORIENT", "fils" : "", "act" : "wait 5", "ens" : [4, 10], "OFF" : "", "plotNum" : 185},
+"ORIENT" : {"next" : "REACH", "frere" : "", "fils" : "", "act" : "turn ", "ens" : [4, 10], "OFF" : "LOCATE", "plotNum" : 186},
+"REACH" : {"next" : "CONSUME", "frere" : "CONSUME", "fils" : "", "act" : "move 1", "ens" : [4, 10], "OFF" : "", "plotNum" : 187, "target" : []},
+"CONSUME" : {"next" : "IDLE", "frere" : "", "fils" : "", "act" : "wait 10", "ens" : [4, 10], "OFF" : "EAT", "plotNum" : 188}
 }
 
 
@@ -207,7 +245,7 @@ def traverse(actionMap, key, prefix) :
             traverse(actionMap, actionMap[key]["fils"], prefix+"-")
             traverse(actionMap, actionMap[key]["frere"], prefix)
 
-traverse(actionMap, "EAT", "-")
+#traverse(actionMap, "EAT", "-")
 
 #propagate()
 #print VT, MMA

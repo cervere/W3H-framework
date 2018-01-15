@@ -9,7 +9,6 @@ ITEM_X_POINTS = np.sort(np.concatenate((np.random.random_integers(-8, -1, 2), np
 CAKE_POINTS, APPLE_POINTS, WATER_BUCKET_POINTS, MUSHROOM_STEW_POINTS = "[", "[", "[", "["
 for z in ITEM_Z_POINTS :
     np.random.shuffle(ITEM_X_POINTS)
-    print ITEM_X_POINTS
     CAKE_POINTS += '"(' + str(ITEM_X_POINTS[0]) + "," + str(Y_BASIC_FLOOR) + "," + str(z) + ')",'
     APPLE_POINTS += '"(' + str(ITEM_X_POINTS[1]) + "," + str(Y_BASIC_FLOOR) + "," + str(z) + ')",'
     WATER_BUCKET_POINTS += '"(' + str(ITEM_X_POINTS[2]) + "," + str(Y_BASIC_FLOOR) + "," + str(z) + ')",'
@@ -106,6 +105,10 @@ floor_basic = json.loads('''
 }
 ''')
 
+CAKE_POINTS = '["(2, 226, 10)"]'#, "(-4, 226, 10)"]'
+APPLE_POINTS = '["(4, 226, 10)"]'#, "(-8, 226, 10)"]'
+MUSHROOM_STEW_POINTS = '["(-3, 226, 10)"]'#, "(-2, 226, 10)"]'
+WATER_BUCKET_POINTS = '["(-5, 226, 10)"]'#, "(-6, 226, 10)"]'
 items_basic = json.loads('''
 {
 "config" : [
