@@ -11,8 +11,8 @@ debug = False
 
 REACH_SCOPE = 1
 SEE_SCOPE = 3
-APPEAR_SCOPE = 5
-AGENT_FOV = np.pi * (1./2)
+APPEAR_SCOPE = 7
+AGENT_FOV = np.pi * (2./3)
 
 
 def inFOV (agent, item, fov=AGENT_FOV) :
@@ -55,6 +55,8 @@ def getYawDelta(targetx, targetz, sourcex, sourcez, syaw) :
 def setCues(moment, x, z, far_entities):
     sx, sz = moment['state']['location']['position']['x'], moment['state']['location']['position']['z']
     syaw = moment['state']['location']['orientation']["yaw"]
+    moment['observation']['reach'] = []
+    moment['observation']['see'] = []
     moment['observation']['appear'] = []
     moment['observation']['viscinity'] = []
 
@@ -70,6 +72,7 @@ def setCues(moment, x, z, far_entities):
         zdist = abs(ez - z)
 
         if zdist <= APPEAR_SCOPE :
+            #print zdist, math.radians(np.abs(ent['yaw'])), AGENT_FOV/2
             if math.radians(np.abs(ent['yaw'])) < AGENT_FOV/2 :
                 if   zdist <= REACH_SCOPE : moment['observation']['reach'].append(ent)
                 elif zdist <= SEE_SCOPE   : moment['observation']['see'].append(ent)
