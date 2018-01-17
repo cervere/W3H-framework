@@ -35,7 +35,8 @@ class MotorCortex(object) :
         self.requestState = "IDLE"
         self.nextAction = ""
 
-    def process(self) :
+    def process(self, agent_host) :
+        agent_host.sendCommand('In Motor')
         if self.state in actionMap :
             self.nextAction = actionMap[self.state]["act"]
             self.requestState = actionMap[self.state]["next"]
@@ -66,7 +67,6 @@ class BasalGanglia(object) :
                         offens = actionMap[off]["ens"]
                         self.MC_gates[ens[0], ens[1]] = 0
                 MC.activity = MC.grid * self.MC_gates + np.random.normal(.1, .01, 1)
-                print 'MCC : ', MC.activity
                 VC._plotCount += 1
                 plotActivity(MC.activity, VC._plotCount, grantedState, actionMap[grantedState]["color"])
                 if grantedState == "DECIDE" : self.decide(VC, PPC, MC)

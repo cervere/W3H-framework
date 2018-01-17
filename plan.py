@@ -166,7 +166,7 @@ for iRepeat in range(num_reps):
             '''
             VC.process(moment)
             BG.process(moment, VC, PPC, MC)
-            MC.process()
+            MC.process(agent_host)
             if not PPC.targetOn or VC.BGOverride :
                 if MC.nextAction != "" :
                     if currentSequence != "" : currentSequence += '; ' + MC.nextAction
