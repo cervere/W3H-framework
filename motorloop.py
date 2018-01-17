@@ -30,7 +30,7 @@ class MotorCortex(object) :
         self.pop = np.zeros(4, motion)
         self.grid = np.ones((20,20))
         self.currentSequence = ''
-        self.activity = np.zeros((0,0)) + 0.1
+        self.activity = np.zeros((20,20)) + 0.1
         self.state = ""
         self.requestState = "IDLE"
         self.nextAction = ""
@@ -46,7 +46,7 @@ class BasalGanglia(object) :
         self.warmup = False
         self.begin = False
         self.MC_gates = np.zeros((20,20))
-
+        self._plotCount = 0
     def process(self, moment, VC, PPC, MC) :
         print "state requested ", MC.requestState, ' from ', MC.state
         PPC.checks()
@@ -59,12 +59,16 @@ class BasalGanglia(object) :
                 print 'granted ', MC.requestState
                 ens = actionMap[grantedState]["ens"]
                 self.MC_gates[ens[0], ens[1]] = 1
-                off = actionMap[grantedState]["OFF"]
-                if off != "" and off in actionMap :
-                    offens = actionMap[off]["ens"]
-                    self.MC_gates[ens[0], ens[1]] = 0
+                offs = actionMap[grantedState]["OFF"].split(",")
+                for off in offs :
+                    print 'offing ', off
+                    if off != "" and off in actionMap :
+                        offens = actionMap[off]["ens"]
+                        self.MC_gates[ens[0], ens[1]] = 0
                 MC.activity = MC.grid * self.MC_gates + np.random.normal(.1, .01, 1)
-                plotActivity(plt, MC.activity, 1, actionMap[grantedState]["plotNum"], grantedState)
+                print 'MCC : ', MC.activity
+                VC._plotCount += 1
+                plotActivity(MC.activity, VC._plotCount, grantedState, actionMap[grantedState]["color"])
                 if grantedState == "DECIDE" : self.decide(VC, PPC, MC)
 
     def decide(self, VC, PPC, MC) :
@@ -75,6 +79,8 @@ class BasalGanglia(object) :
         PPC.targetYaw = MMA[k]["command"]["yaw"]
         actionMap["ORIENT"]["act"] = 'turn '+ str(float(PPC.targetYaw)/180.) + '; PPCWait 1; turn 0'
         PPC.targetPos = MMA[k]["command"]["pos"]
+        PPC.targetYaw = getYawDelta(PPC.targetPos[0], PPC.targetPos[1], PPC.x, PPC.z, PPC.yaw)
+        print 'PPC targetYaw ', PPC.targetYaw, 'currDelta ', getYawDelta(PPC.targetPos[0], PPC.targetPos[1], PPC.x, PPC.z, PPC.yaw), PPC.x, PPC.z
         #actionMap["REACH"]["target"] = MMA[k]["command"]["pos"]
 
 
@@ -88,6 +94,7 @@ class VisualCortex(object) :
         self.warmup = False
         self.begin = False
         self.BGOverride = False
+        self._plotCount = 0
 
     def process(self, moment) :
         myLoc = moment['state']['location']['position']
@@ -118,9 +125,10 @@ class VisualCortex(object) :
             i += 1
 
         if self.MC.state == "EXPLORE" and i > 0:
-            print 'Found items while trying to locate'
+            print 'Found items while trying to locate ', obName, obYaws, self.PPC.x, self.PPC.z
             self.BGOverride = True
-            plotItems(myX, myZ, obX, obZ, obYaws, 2, 223)
+            self._plotCount += 1
+            plotItems(myX, myZ, obX, obZ, obYaws, self._plotCount, 111)
 
 class Insula(object):
     def __init__(self, hunger=0, thirst=0, energy=100):
@@ -159,7 +167,7 @@ class PrimarySomatoSensoryCortex(object) :
                 self.targetYaw = None
         if self.targetOn and self.moving and self.targetPos.all():
             print 'target pos ', self.targetPos, 'current ', self.pos
-            if np.linalg.norm(self.targetPos - self.pos) < .75  :
+            if np.abs(self.targetPos[0] - self.pos[0]) < 0.5 or np.abs(self.targetPos[1] - self.pos[1]) < 0.5 or np.linalg.norm(self.targetPos - self.pos) < .75 :
                 self.waitSignal = False
                 #self.moving = False
                 self.targetPos = np.array([None, None])
@@ -236,14 +244,14 @@ For ex :
         151) return success that hunger is satisfied
 '''
 actionMap = {
-"IDLE" : {"next" : "EAT", "frere" : "", "fils" : "EAT", "act" : "", "ens" : [10, 0], "OFF" : "", "plotNum" : 181},
-"EAT" : {"next" : "EXPLORE", "frere" : "IDLE", "fils" : "EXPLORE", "act" : "wait 1", "ens" : [10, 2], "OFF" : "IDLE", "plotNum" : 182},
-"EXPLORE" : {"next" : "LOCATE", "frere" : "LOCATE", "fils" : "", "act" : "move .75", "ens" : [4, 10], "OFF" : "", "plotNum" : 183},
-"LOCATE" : {"next" : "DECIDE", "frere" : "REACH", "fils" : "DECIDE", "act" : "move 0; wait 5", "ens" : [4, 10], "OFF" : "EXPLORE", "plotNum" : 184},
-"DECIDE" : {"next" : "ORIENT", "frere" : "ORIENT", "fils" : "", "act" : "wait 5", "ens" : [4, 10], "OFF" : "", "plotNum" : 185},
-"ORIENT" : {"next" : "REACH", "frere" : "", "fils" : "", "act" : "turn ", "ens" : [4, 10], "OFF" : "LOCATE", "plotNum" : 186},
-"REACH" : {"next" : "CONSUME", "frere" : "CONSUME", "fils" : "", "act" : "move .75; PPCWait 1; move 0", "ens" : [4, 10], "OFF" : "", "plotNum" : 187, "target" : []},
-"CONSUME" : {"next" : "", "frere" : "", "fils" : "", "act" : "wait 10;", "ens" : [4, 10], "OFF" : "EAT", "plotNum" : 188}
+"IDLE" : {"next" : "EAT", "frere" : "", "fils" : "EAT", "act" : "", "ens" : [0, 8], "OFF" : "CONSUME,EAT", "color" :  "r"},
+"EAT" : {"next" : "EXPLORE", "frere" : "HAPPY", "fils" : "EXPLORE", "act" : "wait 1", "ens" : [0, 10], "OFF" : "IDLE", "color" :  "r"},
+"EXPLORE" : {"next" : "LOCATE", "frere" : "LOCATE", "fils" : "", "act" : "move .75", "ens" : [3, 6], "OFF" : "", "color" :  "g"},
+"LOCATE" : {"next" : "DECIDE", "frere" : "REACH", "fils" : "DECIDE", "act" : "move 0; wait 5", "ens" : [5, 9], "OFF" : "EXPLORE", "color" :  "g"},
+"DECIDE" : {"next" : "ORIENT", "frere" : "ORIENT", "fils" : "", "act" : "wait 5", "ens" : [8, 8], "OFF" : "", "color" :  "b"},
+"ORIENT" : {"next" : "REACH", "frere" : "", "fils" : "", "act" : "turn ", "ens" : [8, 10], "OFF" : "DECIDE", "color" :  "b"},
+"REACH" : {"next" : "CONSUME", "frere" : "CONSUME", "fils" : "", "act" : "move .75; PPCWait 1; move 0", "ens" : [5, 13], "OFF" : "ORIENT,LOCATE", "color" :  "g"},
+"CONSUME" : {"next" : "HAPPY", "frere" : "", "fils" : "", "act" : "wait 10;", "ens" : [6, 16], "OFF" : "REACH,EAT", "color" :  "g"}
 }
 
 

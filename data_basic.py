@@ -105,9 +105,9 @@ floor_basic = json.loads('''
 }
 ''')
 
-CAKE_POINTS = '["(2, 226, 10)"]'#, "(-4, 226, 10)"]'
+CAKE_POINTS = '["(6, 226, 10)"]'#, "(-4, 226, 10)"]'
 APPLE_POINTS = '["(4, 226, 10)"]'#, "(-8, 226, 10)"]'
-MUSHROOM_STEW_POINTS = '["(-3, 226, 10)"]'#, "(-2, 226, 10)"]'
+MUSHROOM_STEW_POINTS = '["(-7, 226, 10)"]'#, "(-2, 226, 10)"]'
 WATER_BUCKET_POINTS = '["(-5, 226, 10)"]'#, "(-6, 226, 10)"]'
 items_basic = json.loads('''
 {

@@ -208,16 +208,17 @@ if debug :
     print getItems(BLOCK_ITEM_SAMPLE)
 
 
-def plotActivity(currPlt, structure, fig, num, label) :
+def plotActivity(structure, fig, label, color) :
     # Assuming every structure is a 2D array of neuron ensembles with a value of activation
     x, z = structure.shape
-    fig = currPlt.figure(fig)
-    ax = fig.add_subplot(num, projection='3d')
+    fig = plt.figure(fig)
+    ax = fig.add_subplot(111, projection='3d')
+    colors = ['r', 'g', 'b']*7
     for zi in np.arange(z):
         xs = np.arange(x)
         ys = structure[zi]
         cs = np.array(['c'] * x)
-        cs[(0.5<ys).nonzero()[0]] = 'b'
+        cs[(0.5<ys).nonzero()[0]] = colors[zi/3]
         ax.bar(xs, ys, zs=zi, zdir='y', color=cs, alpha=0.8)
     ax.set_xlabel('X')
     ax.set_ylabel('Z')

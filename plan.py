@@ -16,7 +16,7 @@ from constants import *
 from motorloop import *
 #### Grid data goes to context
 #### ObservationsFromNearby goes to cues / items with locations
-
+import matplotlib.backends.backend_pdf
 
 EntityInfo = namedtuple('EntityInfo', 'x, y, z, name, quantity, yaw, pitch, life')
 EntityInfo.__new__.__defaults__ = (0, 0, 0, "", 1)
@@ -117,6 +117,7 @@ for iRepeat in range(num_reps):
     PPC = PrimarySomatoSensoryCortex()
     MC = MotorCortex()
     VC = VisualCortex(MC, PPC)
+    eatact = []
     while world_state.is_mission_running:
         world_state = agent_host.getWorldState()
         if world_state.number_of_observations_since_last_state > 0:
@@ -201,12 +202,19 @@ for iRepeat in range(num_reps):
                     agent_host.sendCommand(command) # Send the command to Minecraft.
                     action, flag = command.split(" ")
                     if action == 'move' : PPC.moving = float(flag) != 0
-                    elif action == 'turn' : PPC.turning = float(flag) != 0
+                    elif action == 'turn' :
+                        print 'turning ', PPC.turning, PPC.x, PPC.z
+                        PPC.turning = float(flag) != 0
         PPC.update()
         if VC.BGOverride : VC.BGOverride = False
+        eatactens = actionMap["LOCATE"]["ens"]
+        print eatactens
+        eatact.append(BG.MC_gates[eatactens[0], eatactens[1]])
         time.sleep(0.1)
-    plt.show()
-
+    pdf = matplotlib.backends.backend_pdf.PdfPages("output.pdf")
+    for fig in xrange(1, plt.figure().number): ## will open an empty extra figure :(
+        pdf.savefig( fig )
+    pdf.close()
     with open('observations.json', 'w') as fp:
         json.dump(observations, fp)
     # mission has ended.
@@ -214,3 +222,8 @@ for iRepeat in range(num_reps):
     for error in world_state.errors:
         print "Error:",error.text
     time.sleep(0.5) # Give the mod a little time to prepare for the next mission.
+
+    VC._plotCount += 1
+    plt.figure(VC._plotCount)
+    plt.plot(np.arange(len(eatact)), eatact)
+    #plt.show()
