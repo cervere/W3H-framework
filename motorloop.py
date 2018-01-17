@@ -49,8 +49,8 @@ class BasalGanglia(object) :
 
     def process(self, moment, VC, PPC, MC) :
         print "state requested ", MC.requestState, ' from ', MC.state
-        PPC.checks(MC)
-        PPC.status()
+        PPC.checks()
+        #PPC.status()
         if not PPC.targetOn or VC.BGOverride :
             if MC.requestState in actionMap :
                 #Gate ON in MC
@@ -65,16 +65,17 @@ class BasalGanglia(object) :
                     self.MC_gates[ens[0], ens[1]] = 0
                 MC.activity = MC.grid * self.MC_gates + np.random.normal(.1, .01, 1)
                 plotActivity(plt, MC.activity, 1, actionMap[grantedState]["plotNum"], grantedState)
-                if grantedState == "DECIDE" : self.decide(VC, MC)
+                if grantedState == "DECIDE" : self.decide(VC, PPC, MC)
 
-    def decide(self, VC, MC) :
+    def decide(self, VC, PPC, MC) :
         MMA = MC.pop
         propagate(VC.pop, self.pop, MMA)
         k = np.argmax(MMA["Iext"])
         print MMA[k]["command"]
-        deltaTurn = MMA[k]["command"]["yaw"]
-        actionMap["ORIENT"]["act"] = 'turn '+ str(float(deltaTurn)/180.)
-        actionMap["REACH"]["target"] = MMA[k]["command"]["pos"]
+        PPC.targetYaw = MMA[k]["command"]["yaw"]
+        actionMap["ORIENT"]["act"] = 'turn '+ str(float(PPC.targetYaw)/180.) + '; PPCWait 1; turn 0'
+        PPC.targetPos = MMA[k]["command"]["pos"]
+        #actionMap["REACH"]["target"] = MMA[k]["command"]["pos"]
 
 
 
@@ -90,7 +91,10 @@ class VisualCortex(object) :
 
     def process(self, moment) :
         myLoc = moment['state']['location']['position']
+        myDir = moment['state']['location']['orientation']
         self.PPC.x, self.PPC.y, self.PPC.z = myLoc["x"], myLoc["y"], myLoc["z"]
+        self.PPC.pos = np.array([myLoc["x"], myLoc["z"]])
+        self.PPC.yaw = myDir["yaw"]
         myX, myZ = myLoc["x"], myLoc["z"]
         obX , obZ, obYaws, obName = [], [], [], []
         for it in moment['observation']['viscinity'] :
@@ -101,6 +105,8 @@ class VisualCortex(object) :
         MMA = self.MC.pop
         for it in moment['observation']['appear'] :
             obX.append(it["x"])
+            obZ.append(it["z"])
+            obName.append(it["name"])
             obYaws.append(it["yaw"])
             VT = self.pop
             VT[i]["name"] = str(it["name"])
@@ -110,14 +116,11 @@ class VisualCortex(object) :
             MMA["command"][i]["yaw"] = it["yaw"]
             MMA["command"][i]["pos"] = np.array([it["x"], it["z"]])
             i += 1
-        print self.MC.state, obX , obZ, obYaws, obName
-        print 'before Found'
 
         if self.MC.state == "EXPLORE" and i > 0:
             print 'Found items while trying to locate'
             self.BGOverride = True
-            #plotItems(myX, myZ, obX, obZ, obYaws, 2, 223)
-        print 'after found'
+            plotItems(myX, myZ, obX, obZ, obYaws, 2, 223)
 
 class Insula(object):
     def __init__(self, hunger=0, thirst=0, energy=100):
@@ -135,7 +138,7 @@ class Insula(object):
 
 class PrimarySomatoSensoryCortex(object) :
     def __init__(self):
-        self.x, self.y, self.z = (0. ,0. ,0.)
+        self.x, self.y, self.z = 0. ,0. ,0.
         self.pos = np.array([self.x, self.z])
         self.yaw = 0.
         self.moving = False
@@ -145,18 +148,24 @@ class PrimarySomatoSensoryCortex(object) :
         self.targetYaw = None
         self.targetOn = False
         self.waitCount = 0
+        self.waitSignal = False
 
-    def checks(self, MC) :
+    def checks(self) :
         if self.targetOn and self.turning and self.targetYaw is not None :
-            if np.abs(self.targetYaw - self.yaw) < 2 :
-                self.turning = False
+            print 'target yaw ', self.targetYaw, 'current ', self.yaw
+            if np.abs(self.targetYaw - self.yaw) < 1.5 :
+                self.waitSignal = False
+                #self.turning = False
                 self.targetYaw = None
         if self.targetOn and self.moving and self.targetPos.all():
-            if np.linalg.norm(self.targetPos - self.pos) < 0.5  :
-                self.moving = False
+            print 'target pos ', self.targetPos, 'current ', self.pos
+            if np.linalg.norm(self.targetPos - self.pos) < .75  :
+                self.waitSignal = False
+                #self.moving = False
                 self.targetPos = np.array([None, None])
         if self.targetOn and self.waiting and self.waitCount == 0 :
-            self.waiting = False
+            self.waitSignal = False
+            #self.waiting = False
         self.update()
 
     def update(self) :
@@ -233,8 +242,8 @@ actionMap = {
 "LOCATE" : {"next" : "DECIDE", "frere" : "REACH", "fils" : "DECIDE", "act" : "move 0; wait 5", "ens" : [4, 10], "OFF" : "EXPLORE", "plotNum" : 184},
 "DECIDE" : {"next" : "ORIENT", "frere" : "ORIENT", "fils" : "", "act" : "wait 5", "ens" : [4, 10], "OFF" : "", "plotNum" : 185},
 "ORIENT" : {"next" : "REACH", "frere" : "", "fils" : "", "act" : "turn ", "ens" : [4, 10], "OFF" : "LOCATE", "plotNum" : 186},
-"REACH" : {"next" : "CONSUME", "frere" : "CONSUME", "fils" : "", "act" : "move 1", "ens" : [4, 10], "OFF" : "", "plotNum" : 187, "target" : []},
-"CONSUME" : {"next" : "IDLE", "frere" : "", "fils" : "", "act" : "move 0; wait 10", "ens" : [4, 10], "OFF" : "EAT", "plotNum" : 188}
+"REACH" : {"next" : "CONSUME", "frere" : "CONSUME", "fils" : "", "act" : "move .75; PPCWait 1; move 0", "ens" : [4, 10], "OFF" : "", "plotNum" : 187, "target" : []},
+"CONSUME" : {"next" : "", "frere" : "", "fils" : "", "act" : "wait 10;", "ens" : [4, 10], "OFF" : "EAT", "plotNum" : 188}
 }
 
 
