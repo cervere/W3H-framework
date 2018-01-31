@@ -45,8 +45,8 @@ def GetMissionXML(summary, itemDrawingXML):
                 <AbsoluteMovementCommands/>
                 <DiscreteMovementCommands />
                 <VideoProducer>
-                    <Width>960</Width>
-                    <Height>640</Height>
+                    <Width>1340</Width>
+                    <Height>980</Height>
                 </VideoProducer>
                 <RewardForCollectingItem>
                     <Item reward="2" type="fish porkchop beef chicken rabbit mutton"/>
@@ -60,7 +60,7 @@ def GetMissionXML(summary, itemDrawingXML):
                     <Range name="close_entities" xrange="2" yrange="2" zrange="2" />
                     <Range name="far_entities" xrange="10" yrange="2" zrange="10" update_frequency="1"/>
                 </ObservationFromNearbyEntities>
-                  <ObservationFromGrid>
+                  <!--ObservationFromGrid>
                       <Grid name="reach">
                         <min x="-1" y="-1" z="0"/>
                         <max x="1" y="-1" z="1"/>
@@ -73,7 +73,7 @@ def GetMissionXML(summary, itemDrawingXML):
                         <min x="-3" y="-1" z="4"/>
                         <max x="3" y="-1" z="5"/>
                       </Grid>
-                  </ObservationFromGrid>
+                  </ObservationFromGrid-->
       <AgentQuitFromTouchingBlockType>
           <Block type="grass" />
       </AgentQuitFromTouchingBlockType>

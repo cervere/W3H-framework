@@ -9,9 +9,9 @@ from mpl_toolkits.mplot3d import Axes3D
 
 debug = False
 
-REACH_SCOPE = 1
-SEE_SCOPE = 3
-APPEAR_SCOPE = 7
+REACH_SCOPE = 2
+SEE_SCOPE = 5
+APPEAR_SCOPE = 15
 AGENT_FOV = np.pi * (2./3)
 
 
@@ -69,13 +69,14 @@ def setCues(moment, x, z, far_entities):
         trans_point = [ex, ez]
         if ex > x : trans_point[0] = 2*x - ex
         ent['yaw'] = getYawDelta(ex, ez, sx, sz, syaw)
-        zdist = abs(ez - z)
+        zdist = np.sqrt((ez - z)**2 + (ex - x)**2)
 
-        if zdist <= APPEAR_SCOPE :
+        if   zdist <= REACH_SCOPE :
+            moment['observation']['reach'].append(ent)
+        elif zdist <= APPEAR_SCOPE :
             #print zdist, math.radians(np.abs(ent['yaw'])), AGENT_FOV/2
             if math.radians(np.abs(ent['yaw'])) < AGENT_FOV/2 :
-                if   zdist <= REACH_SCOPE : moment['observation']['reach'].append(ent)
-                elif zdist <= SEE_SCOPE   : moment['observation']['see'].append(ent)
+                if zdist <= SEE_SCOPE   : moment['observation']['see'].append(ent)
                 else                      : moment['observation']['appear'].append(ent)
             else : moment['observation']['viscinity'].append(ent)
 

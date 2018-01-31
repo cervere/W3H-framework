@@ -13,7 +13,7 @@ from collections import namedtuple
 from methods import *
 from xmlutils import GetMissionXML, GetItemDrawingXML
 from constants import *
-from motorloop import *
+from motorloopupdate import *
 #### Grid data goes to context
 #### ObservationsFromNearby goes to cues / items with locations
 import matplotlib.backends.backend_pdf
@@ -74,8 +74,10 @@ else:
 with open('moment.json') as fp:
     base_moment = json.load(fp)
 
-jumping = False
 itemdrawingxml = GetItemDrawingXML(testing=True)
+
+with open('moments.json', 'w') as mm:
+    mm.write('Starting')
 
 for iRepeat in range(num_reps):
     my_mission = MalmoPython.MissionSpec(GetMissionXML("Explore the world" , itemdrawingxml),validate)
@@ -106,14 +108,22 @@ for iRepeat in range(num_reps):
     waitCycles = 0
     currentSequence = "move 0;"
     observations = {"data" : []}
+    all_moments = {"data" : []}
     turnUntil, moveUntil = False, False
-    INS = Insula()
-    ACC = AnteriorCingulateCortex(INS)
+    INS_A = Insula_A()
+    ACC = AnteriorCingulateCortex(INS_A)
     BG = BasalGanglia()
     PPC = PrimarySomatoSensoryCortex()
     MC = MotorCortex()
-    VC = VisualCortex(MC, PPC)
+    VC = VisualCortex(MC, PPC, ACC)
     eatact = []
+    INS_A_DESIRED = []
+    INS_A_DESIRED_TIMES = []
+    VA_DESIRED = []
+    VA_DESIRED_TIMES = []
+    STATE_CHANGE_TIMES = []
+    STATE_CHANGE_STATE = []
+    prev = MC.state
     while world_state.is_mission_running:
         world_state = agent_host.getWorldState()
         if world_state.number_of_observations_since_last_state > 0:
@@ -125,7 +135,7 @@ for iRepeat in range(num_reps):
             '''
              Observe(Environment)
                 * Internal
-                    * Hunger, Thirst, Well-being - (Get this from Insula)
+                    * Hunger, Thirst, Well-being - (Get this from Insula_A)
                 * External
                     * Appear, See, Reach zones
             '''
@@ -134,10 +144,18 @@ for iRepeat in range(num_reps):
             observations["data"].append(ob)
             moment = copy.copy(base_moment)
             prepareMoment(moment, ob)
+            if MC.state != prev :
+                print 'State changed, recording time'
+                STATE_CHANGE_STATE.append(MC.state)
+                STATE_CHANGE_TIMES.append(moment['globalTime'])
+                prev = MC.state
+            with open('moments.json', 'a') as mm:
+                pprint(moment, stream=mm)
             if moment['globalTime'] % 10 == 0 :
-                INS.timeEffect()
-                INS.status()
+                INS_A.timeEffect()
+                INS_A.status()
                 ACC.status()
+                ACC.randomcheck()
 
             '''
              Perceive(Observations)
@@ -162,7 +180,7 @@ for iRepeat in range(num_reps):
 
             '''
             VC.process(moment)
-            BG.process(moment, VC, PPC, MC)
+            BG.process(moment, VC, PPC, MC,ACC)
             if BG.msg != "" :
                 SendChat(BG.msg)
                 BG.msg = ""
@@ -172,6 +190,10 @@ for iRepeat in range(num_reps):
                     if currentSequence != "" : currentSequence += '; ' + MC.nextAction
                     else : currentSequence = MC.nextAction
                     #print 'executing ', currentSequence
+            VA_DESIRED.append(np.array(VC.values["actual"]))
+            VA_DESIRED_TIMES.append(moment['globalTime'])
+            INS_A_DESIRED.append(np.array(INS_A.values["desired"]))
+
         '''
         The internal reward processing can be handled later.
         At this moment, rewards (or changes because of consumption) are handled explicitly
@@ -207,17 +229,14 @@ for iRepeat in range(num_reps):
                         print 'turning ', PPC.turning, PPC.x, PPC.z
                         PPC.turning = float(flag) != 0
         PPC.update()
+        if PPC.moving : INS_A.moveEffect()
         if VC.BGOverride : VC.BGOverride = False
         eatactens = actionMap["LOCATE"]["ens"]
         print eatactens
         eatact.append(BG.MC_gates[eatactens[0], eatactens[1]])
         time.sleep(0.1)
-    pdf = matplotlib.backends.backend_pdf.PdfPages("output.pdf")
-    for fig in xrange(1, plt.figure().number): ## will open an empty extra figure :(
-        pdf.savefig( fig )
-    pdf.close()
     with open('observations.json', 'w') as fp:
-        json.dump(observations, fp)
+        pprint(observations, stream=fp)
     # mission has ended.
     print "Mission " + str(iRepeat+1) + ": Reward = " + str(reward)
     for error in world_state.errors:
@@ -225,6 +244,41 @@ for iRepeat in range(num_reps):
     time.sleep(0.5) # Give the mod a little time to prepare for the next mission.
 
     VC._plotCount += 1
-    plt.figure(VC._plotCount)
-    plt.plot(np.arange(len(eatact)), eatact)
-    #plt.show()
+    fig = plt.figure(1)
+    #plt.plot(np.arange(len(eatact)), eatact)
+    INS_A_DESIRED_PLOT = np.asarray(INS_A_DESIRED)
+    VC_DESIRED_PLOT = np.asarray(VA_DESIRED)
+    ax = fig.add_subplot(211)
+    xs, ys = INS_A_DESIRED_PLOT.shape
+    for pop in POPULATIONS :
+        ax.plot(VA_DESIRED_TIMES, INS_A_DESIRED_PLOT[:, POPULATIONS[pop]], label=pop)
+    stt, sts = [], []
+    curr = 0
+    for i, stat in zip(STATE_CHANGE_TIMES, STATE_CHANGE_STATE) :
+        if i <= xs :
+            ax.axvline(i, color='r')
+            if i <= curr*50 :
+                stt.append(i)
+                sts.append(stat)
+            else :
+                for j in range(curr+1, i/50+1) :
+                    stt.append(j*50)
+                    sts.append(str(j*50))
+                curr = i/50
+                stt.append(i)
+                sts.append(stat)
+    ax.set_xticks(stt)
+    ax.set_xticklabels(sts, rotation=60)
+    ax.legend()
+    ax = fig.add_subplot(212)
+    xs, ys = VC_DESIRED_PLOT.shape
+    for pop in POPULATIONS :
+        ax.plot(VA_DESIRED_TIMES, VC_DESIRED_PLOT[:, POPULATIONS[pop]], label=pop)
+    ax.legend()
+
+    #pdf = matplotlib.backends.backend_pdf.PdfPages("output.pdf")
+    #for fig in xrange(1, plt.figure().number): ## will open an empty extra figure :(
+    #    pdf.savefig( fig )
+    #pdf.close()
+
+    plt.show()

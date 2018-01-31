@@ -12,8 +12,10 @@ vttype = [("name",  '|S64'),
            ("valence",  valence),
            ("Iext", 'float64')]
 
+valuetype = [("actual", "float64"), ("desired", "float64")]
+
 global weights #, VT, BG, MMA,
-global PC, OFC
+global PC
 
 weights = np.asarray([.5] * 4)
 
@@ -22,8 +24,6 @@ weights = np.asarray([.5] * 4)
 #MMA = np.zeros(4, motion) # The motor command that will lead to respective stimulus in VT. For eg : mot1 = {"yaw" : 45, move : 1, "expected" : (x,y)}
 
 PC = (0,0) # gives current location - (x,y)
-
-OFC = np.sort(np.random.rand(8)/5)[-4:] #4 random numbers for a pre-registered preference value
 
 class MotorCortex(object) :
     def __init__(self):
@@ -49,7 +49,7 @@ class BasalGanglia(object) :
         self.MC_gates = np.zeros((20,20))
         self._plotCount = 0
         self.msg = ""
-    def process(self, moment, VC, PPC, MC) :
+    def process(self, moment, VC, PPC, MC, ACC) :
         print "state requested ", MC.requestState, ' from ', MC.state
         PPC.checks()
         #PPC.status()
@@ -71,13 +71,14 @@ class BasalGanglia(object) :
                         offens = actionMap[off]["ens"]
                         self.MC_gates[ens[0], ens[1]] = 0
                 MC.activity = MC.grid * self.MC_gates + np.random.normal(.1, .01, 1)
-                VC._plotCount += 1
-                plotActivity(MC.activity, VC._plotCount, grantedState, actionMap[grantedState]["color"])
-                if grantedState == "DECIDE" : self.decide(VC, PPC, MC)
+                #VC._plotCount += 1
+                #plotActivity(MC.activity, VC._plotCount, grantedState, actionMap[grantedState]["color"])
+                if grantedState == "DECIDE" : self.decide(VC, PPC, MC, ACC)
 
-    def decide(self, VC, PPC, MC) :
+    def decide(self, VC, PPC, MC, ACC) :
         MMA = MC.pop
         propagate(VC.pop, self.pop, MMA)
+        print 'Stats from ACC : Hunger ', ACC.getCurrentHunger(), ', Thirst ', ACC.getCurrentThirst()
         k = np.argmax(MMA["Iext"])
         print MMA[k]["command"]
         PPC.targetYaw = MMA[k]["command"]["yaw"]
@@ -91,14 +92,16 @@ class BasalGanglia(object) :
 
 
 class VisualCortex(object) :
-    def __init__(self, MC, PPC):
+    def __init__(self, MC, PPC, ACC):
         self.pop = np.zeros(4, vttype)
         self.MC = MC
         self.PPC = PPC
+        self.ACC = ACC
         self.warmup = False
         self.begin = False
         self.BGOverride = False
         self._plotCount = 0
+        self.values = np.zeros(MAXIMUM_STIMULI, valuetype)
 
     def process(self, moment) :
         myLoc = moment['state']['location']['position']
@@ -114,7 +117,14 @@ class VisualCortex(object) :
             obName.append(it["name"])
         i = 0
         MMA = self.MC.pop
+        self.values["actual"][:] = 0
+        for re in moment['observation']['reach'] :
+            self.values["actual"][POPULATIONS[re["name"]]] = 1
+        for se in moment['observation']['see'] :
+            self.values["actual"][POPULATIONS[se["name"]]] = 1
+
         for it in moment['observation']['appear'] :
+            self.values["actual"][POPULATIONS[it["name"]]] = 1
             obX.append(it["x"])
             obZ.append(it["z"])
             obName.append(it["name"])
@@ -127,26 +137,39 @@ class VisualCortex(object) :
             MMA["command"][i]["yaw"] = it["yaw"]
             MMA["command"][i]["pos"] = np.array([it["x"], it["z"]])
             i += 1
-
+        self.values["actual"] +=  np.random.uniform(0,.1, self.values["actual"].size)
         if self.MC.state == "EXPLORE" and i > 0:
-            print 'Found items while trying to locate ', obName, obYaws, self.PPC.x, self.PPC.z
+            print 'Found items while trying to explore ', obName, obYaws, self.PPC.x, self.PPC.z
             self.BGOverride = True
             self._plotCount += 1
-            plotItems(myX, myZ, obX, obZ, obYaws, self._plotCount, 111)
+            print 'When objects appeared ; Hunger : ', self.ACC.getCurrentHunger(), ', Thirst : ', self.ACC.getCurrentThirst()
+            self.ACC.randomcheck()
+            #plotItems(myX, myZ, obX, obZ, obYaws, self._plotCount, 111)
+        self.values["desired"] = self.ACC.insula_a.values["desired"]
 
-class Insula(object):
+class Insula_A(object):
     def __init__(self, hunger=0, thirst=0, energy=100):
         self.hunger = hunger
         self.thirst = thirst
         self.energy = energy
+        self.values = np.zeros(MAXIMUM_STIMULI, valuetype)
 
     def timeEffect(self) :
         self.hunger += 1
         self.thirst += 1
         self.energy -= 1
 
+    def moveEffect(self) :
+        self.hunger += 2
+        self.thirst += 3
+        self.energy -= 2
+
     def status(self) :
         print 'Hunger : %4.2f, Thirst : %4.2f, Energy : %4.2f' % (self.hunger, self.thirst, self.energy)
+
+class Insula_O(object):
+    def __init__(self):
+        self.values = np.zeros(MAXIMUM_STIMULI, valuetype)
 
 class PrimarySomatoSensoryCortex(object) :
     def __init__(self):
@@ -161,6 +184,7 @@ class PrimarySomatoSensoryCortex(object) :
         self.targetOn = False
         self.waitCount = 0
         self.waitSignal = False
+        self.values = np.zeros(MAXIMUM_POSITIONS, valuetype)
 
     def checks(self) :
         if self.targetOn and self.turning and self.targetYaw is not None :
@@ -196,13 +220,28 @@ class AnteriorCingulateCortex(object) :
         Learn the expense rate as per movement and time
         Estimate for each stimulus, the rough cost of action
     '''
-    def __init__(self, insula):
-        self.insula = insula
+    def __init__(self, insula_a):
+        self.insula_a = insula_a
 
-    def getCurrentHunger() :
-        return self.insula
+    def getCurrentHunger(self) :
+        return self.insula_a.hunger
+
+    def getCurrentThirst(self) :
+        return self.insula_a.thirst
+
+    def randomcheck(self) :
+        self.insula_a.values["desired"][:] = 0
+        if self.getCurrentThirst() > THIRST_LIMIT :
+            for item in THIRST_ITEMS :
+                self.insula_a.values["desired"][POPULATIONS[item]] = 1
+        if self.getCurrentHunger() > HUNGER_LIMIT :
+            for item in HUNGER_ITEMS :
+                self.insula_a.values["desired"][POPULATIONS[item]] = 1
+        self.insula_a.values["desired"] +=  np.random.uniform(0,.1, self.insula_a.values["desired"].size)
+
+
     def status(self) :
-        print 'From ACC : Hunger : %4.2f, Thirst : %4.2f' % (self.insula.hunger, self.insula.thirst)
+        print 'From ACC : Hunger : %4.2f, Thirst : %4.2f' % (self.insula_a.hunger, self.insula_a.thirst)
 
 def OneToOne(source, target, weights) :
     for i in range(target.shape[0]):
@@ -219,9 +258,6 @@ Assuming BG knows that A1 needs sub actions A11, A12, A13 to occur in sequence,
 BG provides gating input to A11, once it is finished then to A12 and so on upto A13.
 Once A13 is done, BG provides gate OFF to A1.
 '''
-
-OFC = np.zeros((10,10))
-ACC = np.zeros((10,10))
 
 actionMap = {
 "A1" : {"frere" : "A2", "fils" : "A11"},
@@ -255,7 +291,7 @@ actionMap = {
 "LOCATE" : {"next" : "DECIDE", "frere" : "REACH", "fils" : "DECIDE", "act" : "move 0; wait 5", "ens" : [5, 9], "OFF" : "EXPLORE", "color" :  "g", "msg" : "Ooh..I find something around!"},
 "DECIDE" : {"next" : "ORIENT", "frere" : "ORIENT", "fils" : "", "act" : "wait 5", "ens" : [8, 8], "OFF" : "", "color" :  "b", "msg" : "I'm trying to decide!"},
 "ORIENT" : {"next" : "REACH", "frere" : "", "fils" : "", "act" : "turn ", "ens" : [8, 10], "OFF" : "DECIDE", "color" :  "b", "msg" : "I chose something, I will orient towards it."},
-"REACH" : {"next" : "CONSUME", "frere" : "CONSUME", "fils" : "", "act" : "move .75; PPCWait 1; move 0", "ens" : [5, 13], "OFF" : "ORIENT,LOCATE", "color" :  "g", "msg" : "I will appraoch this object"},
+"REACH" : {"next" : "CONSUME", "frere" : "CONSUME", "fils" : "", "act" : "move .5; PPCWait 1; move 0", "ens" : [5, 13], "OFF" : "ORIENT,LOCATE", "color" :  "g", "msg" : "I will appraoch this object"},
 "CONSUME" : {"next" : "IDLE", "frere" : "", "fils" : "", "act" : "wait 10; tpx 0.; setYaw 0", "ens" : [6, 16], "OFF" : "REACH,EAT", "color" :  "g", "msg" : "I got it! Nom.. nom.. nom.."}
 }
 
