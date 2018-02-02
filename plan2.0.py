@@ -121,6 +121,8 @@ for iRepeat in range(num_reps):
     INS_A_DESIRED_TIMES = []
     VA_DESIRED = []
     VA_DESIRED_TIMES = []
+    INS_A_ACTUAL = []
+    VA_ACTUAL = []
     STATE_CHANGE_TIMES = []
     STATE_CHANGE_STATE = []
     prev = MC.state
@@ -190,9 +192,11 @@ for iRepeat in range(num_reps):
                     if currentSequence != "" : currentSequence += '; ' + MC.nextAction
                     else : currentSequence = MC.nextAction
                     #print 'executing ', currentSequence
-            VA_DESIRED.append(np.array(VC.values["actual"]))
             VA_DESIRED_TIMES.append(moment['globalTime'])
+            VA_DESIRED.append(np.array(VC.values["desired"]))
+            VA_ACTUAL.append(np.array(VC.values["actual"]))
             INS_A_DESIRED.append(np.array(INS_A.values["desired"]))
+            INS_A_ACTUAL.append(np.array(INS_A.values["actual"]))
 
         '''
         The internal reward processing can be handled later.
@@ -245,17 +249,22 @@ for iRepeat in range(num_reps):
 
     VC._plotCount += 1
     fig = plt.figure(1)
+    fig.suptitle('Values in Visual Areas (Actual and Desired)', fontsize=20)
     #plt.plot(np.arange(len(eatact)), eatact)
     INS_A_DESIRED_PLOT = np.asarray(INS_A_DESIRED)
     VC_DESIRED_PLOT = np.asarray(VA_DESIRED)
+    INS_A_ACTUAL_PLOT = np.asarray(INS_A_ACTUAL)
+    VC_ACTUAL_PLOT = np.asarray(VA_ACTUAL)
     ax = fig.add_subplot(211)
-    xs, ys = INS_A_DESIRED_PLOT.shape
+    ax.set_xlabel('Time (ms)')
+    ax.set_ylabel('Activity (normalized)')
     for pop in POPULATIONS :
-        ax.plot(VA_DESIRED_TIMES, INS_A_DESIRED_PLOT[:, POPULATIONS[pop]], label=pop)
+        ax.plot(VA_DESIRED_TIMES, VC_DESIRED_PLOT[:, POPULATIONS[pop]], label=pop)
     stt, sts = [], []
     curr = 0
+    xs, ys = VC_ACTUAL_PLOT.shape
     for i, stat in zip(STATE_CHANGE_TIMES, STATE_CHANGE_STATE) :
-        if i <= xs :
+        if True :
             ax.axvline(i, color='r')
             if i <= curr*50 :
                 stt.append(i)
@@ -271,14 +280,52 @@ for iRepeat in range(num_reps):
     ax.set_xticklabels(sts, rotation=60)
     ax.legend()
     ax = fig.add_subplot(212)
-    xs, ys = VC_DESIRED_PLOT.shape
+    ax.set_xlabel('Time (ms)')
+    ax.set_ylabel('Activity (normalized)')
     for pop in POPULATIONS :
-        ax.plot(VA_DESIRED_TIMES, VC_DESIRED_PLOT[:, POPULATIONS[pop]], label=pop)
+        ax.plot(VA_DESIRED_TIMES, VC_ACTUAL_PLOT[:, POPULATIONS[pop]], label=pop)
     ax.legend()
 
     #pdf = matplotlib.backends.backend_pdf.PdfPages("output.pdf")
     #for fig in xrange(1, plt.figure().number): ## will open an empty extra figure :(
     #    pdf.savefig( fig )
     #pdf.close()
+
+    fig = plt.figure(2)
+    fig.suptitle('Values in Insular Cortex(-ACC) (Actual and Desired)', fontsize=20)
+    #plt.plot(np.arange(len(eatact)), eatact)
+    INS_A_DESIRED_PLOT = np.asarray(INS_A_DESIRED)
+    INS_A_ACTUAL_PLOT = np.asarray(INS_A_ACTUAL)
+    ax = fig.add_subplot(211)
+    ax.set_xlabel('Time (ms)')
+    ax.set_ylabel('Activity (normalized)')
+    for pop in POPULATIONS :
+        ax.plot(VA_DESIRED_TIMES, INS_A_DESIRED_PLOT[:, POPULATIONS[pop]], label=pop)
+    stt, sts = [], []
+    curr = 0
+    xs, ys = VC_ACTUAL_PLOT.shape
+    for i, stat in zip(STATE_CHANGE_TIMES, STATE_CHANGE_STATE) :
+        if True :
+            ax.axvline(i, color='r')
+            if i <= curr*50 :
+                stt.append(i)
+                sts.append(stat)
+            else :
+                for j in range(curr+1, i/50+1) :
+                    stt.append(j*50)
+                    sts.append(str(j*50))
+                curr = i/50
+                stt.append(i)
+                sts.append(stat)
+    ax.set_xticks(stt)
+    ax.set_xticklabels(sts, rotation=60)
+    ax.legend()
+    ax = fig.add_subplot(212)
+    ax.set_xlabel('Time (ms)')
+    ax.set_ylabel('Activity (normalized)')
+    for pop in POPULATIONS :
+        ax.plot(VA_DESIRED_TIMES, INS_A_ACTUAL_PLOT[:, POPULATIONS[pop]], label=pop)
+    ax.legend()
+
 
     plt.show()

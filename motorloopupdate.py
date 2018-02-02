@@ -118,13 +118,21 @@ class VisualCortex(object) :
         i = 0
         MMA = self.MC.pop
         self.values["actual"][:] = 0
+        self.ACC.hunger_values[:] = 0
+        self.ACC.thirst_values[:] = 0
         for re in moment['observation']['reach'] :
+            self.ACC.hunger_values[POPULATIONS[re["name"]]] = FOOD_VALUES[re["name"]]
+            self.ACC.thirst_values[POPULATIONS[re["name"]]] = WATER_VALUES[re["name"]]
             self.values["actual"][POPULATIONS[re["name"]]] = 1
         for se in moment['observation']['see'] :
+            self.ACC.hunger_values[POPULATIONS[se["name"]]] = FOOD_VALUES[se["name"]]
+            self.ACC.thirst_values[POPULATIONS[se["name"]]] = WATER_VALUES[se["name"]]
             self.values["actual"][POPULATIONS[se["name"]]] = 1
 
         for it in moment['observation']['appear'] :
             self.values["actual"][POPULATIONS[it["name"]]] = 1
+            self.ACC.hunger_values[POPULATIONS[it["name"]]] = FOOD_VALUES[it["name"]]
+            self.ACC.thirst_values[POPULATIONS[it["name"]]] = WATER_VALUES[it["name"]]
             obX.append(it["x"])
             obZ.append(it["z"])
             obName.append(it["name"])
@@ -138,6 +146,7 @@ class VisualCortex(object) :
             MMA["command"][i]["pos"] = np.array([it["x"], it["z"]])
             i += 1
         self.values["actual"] +=  np.random.uniform(0,.1, self.values["actual"].size)
+
         if self.MC.state == "EXPLORE" and i > 0:
             print 'Found items while trying to explore ', obName, obYaws, self.PPC.x, self.PPC.z
             self.BGOverride = True
@@ -212,6 +221,16 @@ class PrimarySomatoSensoryCortex(object) :
         print 'target', self.targetOn, 'moving', self.moving, 'waiting ', self.waiting, 'turning ', self.turning
 
 
+class OrbitoFrontalCortex(object) :
+    '''
+    Receives partially observable state information about stimuli from
+    extra cortical structures. Receives food and thirst relevance values of each stimulus
+    from Insula_O
+    '''
+
+    def __init__(self, insula_o) :
+        self.insula_o = insula_o
+        self.pref_values = np.zeros(MAXIMUM_STIMULI)
 
 class AnteriorCingulateCortex(object) :
 
@@ -222,6 +241,8 @@ class AnteriorCingulateCortex(object) :
     '''
     def __init__(self, insula_a):
         self.insula_a = insula_a
+        self.hunger_values = np.zeros(MAXIMUM_STIMULI)
+        self.thirst_values = np.zeros(MAXIMUM_STIMULI)
 
     def getCurrentHunger(self) :
         return self.insula_a.hunger
