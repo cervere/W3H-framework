@@ -13,7 +13,7 @@ from collections import namedtuple
 from methods import *
 from xmlutils import GetMissionXML, GetItemDrawingXML
 from constants import *
-from motorloopupdate import *
+from motorloopupdatenew import *
 #### Grid data goes to context
 #### ObservationsFromNearby goes to cues / items with locations
 import matplotlib.backends.backend_pdf
@@ -121,21 +121,29 @@ for iRepeat in range(num_reps):
     INS_A_DESIRED = []
     INS_A_DESIRED_TIMES = []
     VA_DESIRED = []
+    VA_ESTIMATE = []
     VA_DESIRED_TIMES = []
     INS_A_ACTUAL = []
+    HUNGER_VALUES = []
+    THIRST_VALUES = []
     VA_ACTUAL = []
     STATE_CHANGE_TIMES = []
     STATE_CHANGE_STATE = []
     traces_x, traces_z = [], []
     prev = MC.state
+    checkTimes = [25, 50, 75]
+    checking = 0
+    prevSeq = ''
+    note = ''
+    ACCtoVA = ACCVAConnection(ACC, VC)
+    MCtoPPC = MCPPCConnection(MC, PPC)
+    movingOn, turningOn = False, False
+    movenote, turnnote = '', ''
+    np.random.shuffle(RANDOM_NOISE)
     while world_state.is_mission_running:
         world_state = agent_host.getWorldState()
         if world_state.number_of_observations_since_last_state > 0:
             #print "in the beginning ", MC.state, 'target', PPC.targetOn, 'moving', PPC.moving, 'waiting ', PPC.waiting, 'turning ', PPC.turning
-            '''
-             Roughly, at each time instance, the following sequence can be observed :
-             Observe, Perceive, Act
-            '''
             '''
              Observe(Environment)
                 * Internal
@@ -150,19 +158,16 @@ for iRepeat in range(num_reps):
             prepareMoment(moment, ob)
             traces_x.append(moment['state']["location"]["position"]["x"])
             traces_z.append(moment['state']["location"]["position"]["z"])
-            if MC.state != prev :
-                print 'State changed, recording time'
-                STATE_CHANGE_STATE.append(MC.state)
-                STATE_CHANGE_TIMES.append(moment['globalTime'])
-                prev = MC.state
             with open('moments.json', 'a') as mm:
                 pprint(moment, stream=mm)
             if moment['globalTime'] % 10 == 0 :
                 INS_A.timeEffect()
-                INS_A.status()
-                ACC.status()
-                ACC.randomcheck()
-
+                #INS_A.status()
+                #ACC.status()
+                ACC.check()
+            ACCtoVA.propagate()
+            MCtoPPC.propagate()
+            print 'beginning ', MC.estimate_turn["Iext"]
             '''
              Perceive(Observations)
                 * Internal
@@ -186,23 +191,79 @@ for iRepeat in range(num_reps):
 
             '''
             VC.process(moment)
-            BG.process(moment, VC, PPC, MC,ACC)
+            #BG.process(moment, VC, PPC, MC,ACC)
             if BG.msg != "" :
                 SendChat(BG.msg)
                 BG.msg = ""
-            MC.process(agent_host)
-            if not PPC.targetOn or VC.BGOverride :
+            #MC.process(agent_host)
+            if False and (not PPC.targetOn or VC.BGOverride) :
+                print 'should never'
                 if MC.nextAction != "" :
                     if currentSequence != "" : currentSequence += '; ' + MC.nextAction
                     else : currentSequence = MC.nextAction
                     #print 'executing ', currentSequence
             VA_DESIRED_TIMES.append(moment['globalTime'])
             VA_DESIRED.append(np.array(VC.values["desired"]))
+            VA_ESTIMATE.append(np.array(VC.estimate_move["Iext"]))
             VA_ACTUAL.append(np.array(VC.values["actual"]))
             INS_A_DESIRED.append(np.array(INS_A.values["desired"]))
             INS_A_ACTUAL.append(np.array(INS_A.values["actual"]))
+            HUNGER_VALUES.append(ACC.getCurrentHunger())
+            THIRST_VALUES.append(ACC.getCurrentThirst())
+
+            '''
+            ACT
+            '''
+            ACC.status()
+            if moment['globalTime'] > 225 :
+                MC.resetValues()
+            elif False : #moment['globalTime'] > 50 :
+                MC.estimate_turn[0]["Iext"] = .1
+                MC.estimate_move[0]["Iext"] = .75
+                MC.estimate_move[0]["note"] = "tpx .25; tpz 35;"
+                MC.values_turn[:]["Iext"] = .1
+                MC.values_move[:]["Iext"] = .1
 
 
+            motor_pop = np.concatenate([MC.values_turn["Iext"], MC.estimate_turn["Iext"]])
+            winning_motor = np.argmax(motor_pop)
+            print 'time ', moment['globalTime']
+            print 'just before ', MC.estimate_turn["Iext"]
+            if not movingOn :
+                if motor_pop[winning_motor] > 0.25 :
+                    if winning_motor > MC.values_turn.size - 1 :
+                        turnnote = MC.estimate_turn[winning_motor - MC.values_turn.size]["note"]
+                    else :
+                        turnnote = MC.values_turn[winning_motor]["note"]
+                    if turnnote != "" and turnnote.split(" ")[1].split(";")[0] > 0 :
+                        print 'turnnote ', turnnote
+                        turnSpeed = 0.2
+                    else :
+                        turnSpeed = -0.2
+                    currentSequence = "turn " + str(turnSpeed) + ";"
+                    turningOn = True
+                elif turningOn :
+                    currentSequence = "turn 0;" + turnnote
+                    turningOn = False
+                    turnnote = ''
+            print 'com : ', turnnote
+            motor_pop_move = np.concatenate([MC.values_move["Iext"], MC.estimate_move["Iext"]])
+            winning_motor = np.argmax(motor_pop_move)
+            if not turningOn :
+                if motor_pop_move[winning_motor] > 0.25 :
+                    print 'Some move active'
+                    if winning_motor > MC.values_move.size - 1 :
+                        movenote = MC.estimate_move[winning_motor - MC.values_move.size]["note"]
+                    else :
+                        movenote = MC.values_move[winning_motor]["note"]
+                    currentSequence += "move .6; "
+                    movingOn = True
+                else :
+                    currentSequence += "move 0;" + movenote
+                    movingOn = False
+                    movenote = ''
+            #currentSequence = prevSeq + currentSequence
+            print 'while prev com : ', movenote
 
 
         '''
@@ -215,30 +276,26 @@ for iRepeat in range(num_reps):
         '''
 
         if PPC.waitCount > 0 : PPC.waitCount -= 1
-        if not PPC.waitSignal and PPC.waitCount == 0:
-            PPC.waiting = False
+        #if not PPC.waitSignal and PPC.waitCount == 0:
+            #PPC.waiting = False
             # Time to execute the next command, if we have one:
-            if currentSequence != "":
-                print 'executing ', currentSequence
-                commands = currentSequence.split(";", 1)
-                command = commands[0].strip()
-                if len(commands) > 1:
-                    currentSequence = commands[1]
-                else:
-                    currentSequence = ""
-                verb,sep,param = command.partition(" ")
-                if verb == "wait":
-                    PPC.waitCount = int(param.strip())
-                    PPC.waiting = True
-                elif verb == "PPCWait":
-                    PPC.waitSignal = True
-                else:
-                    agent_host.sendCommand(command) # Send the command to Minecraft.
-                    action, flag = command.split(" ")
-                    if action == 'move' : PPC.moving = float(flag) != 0
-                    elif action == 'turn' :
-                        print 'turning ', PPC.turning, PPC.x, PPC.z
-                        PPC.turning = float(flag) != 0
+        if PPC.waitCount == 0 and currentSequence != "":
+            print 'executing ', currentSequence
+            commands = currentSequence.split(";", 1)
+            command = commands[0].strip()
+            if len(commands) > 1:
+                currentSequence = commands[1]
+            else:
+                currentSequence = ""
+            verb,sep,param = command.partition(" ")
+            if verb == "wait":
+                PPC.waitCount = int(param.strip())
+                PPC.waiting = True
+            elif verb == "PPCWait":
+                PPC.waitSignal = True
+            else:
+                agent_host.sendCommand(command) # Send the command to Minecraft.
+
         PPC.update()
         if PPC.moving : INS_A.moveEffect()
         if VC.BGOverride : VC.BGOverride = False
@@ -257,86 +314,29 @@ for iRepeat in range(num_reps):
     time.sleep(0.5) # Give the mod a little time to prepare for the next mission.
 
     VC._plotCount += 1
-    fig = plt.figure(1)
-    fig.suptitle('Values in Visual Areas (Actual and Desired)', fontsize=20)
-    #plt.plot(np.arange(len(eatact)), eatact)
     INS_A_DESIRED_PLOT = np.asarray(INS_A_DESIRED)
     VC_DESIRED_PLOT = np.asarray(VA_DESIRED)
     INS_A_ACTUAL_PLOT = np.asarray(INS_A_ACTUAL)
     VC_ACTUAL_PLOT = np.asarray(VA_ACTUAL)
-    ax = fig.add_subplot(211)
+
+    genericPlot(VA_DESIRED_TIMES, VC_DESIRED_PLOT, VC_ACTUAL_PLOT, 'Visual Areas', VA_ESTIMATE)
+    genericPlot(VA_DESIRED_TIMES, INS_A_DESIRED_PLOT, INS_A_ACTUAL_PLOT, 'Insular Cortex(-ACC)')
+
+    plotPath(traces_x, traces_z, 4)
+
+    fig = plt.figure(3)
+    fig.suptitle('Hunger and Thirst', fontsize=20)
+    ax = fig.add_subplot(111)
     ax.set_xlabel('Time (ms)')
-    ax.set_ylabel('Activity (normalized)')
-    for pop in POPULATIONS :
-        ax.plot(VA_DESIRED_TIMES, VC_DESIRED_PLOT[:, POPULATIONS[pop]], label=pop)
-    stt, sts = [], []
-    curr = 0
-    xs, ys = VC_ACTUAL_PLOT.shape
-    for i, stat in zip(STATE_CHANGE_TIMES, STATE_CHANGE_STATE) :
-        if True :
-            ax.axvline(i, color='r')
-            if i <= curr*50 :
-                stt.append(i)
-                sts.append(stat)
-            else :
-                for j in range(curr+1, i/50+1) :
-                    stt.append(j*50)
-                    sts.append(str(j*50))
-                curr = i/50
-                stt.append(i)
-                sts.append(stat)
-    ax.set_xticks(stt)
-    ax.set_xticklabels(sts, rotation=60)
-    ax.legend()
-    ax = fig.add_subplot(212)
-    ax.set_xlabel('Time (ms)')
-    ax.set_ylabel('Activity (normalized)')
-    for pop in POPULATIONS :
-        ax.plot(VA_DESIRED_TIMES, VC_ACTUAL_PLOT[:, POPULATIONS[pop]], label=pop)
-    ax.legend()
+    ax.set_ylabel('Units')
+    #ax.set_ylim(ymin=0, ymax=1.2)
+    ax.plot(VA_DESIRED_TIMES, HUNGER_VALUES, label='hunger')
+    ax.plot(VA_DESIRED_TIMES, THIRST_VALUES, label='thirst')
+    ax.legend(loc='center left',fontsize="x-small", bbox_to_anchor=(1, 0.5))
 
-    #pdf = matplotlib.backends.backend_pdf.PdfPages("output.pdf")
-    #for fig in xrange(1, plt.figure().number): ## will open an empty extra figure :(
-    #    pdf.savefig( fig )
-    #pdf.close()
+    #plt.show()
 
-    fig = plt.figure(2)
-    fig.suptitle('Values in Insular Cortex(-ACC) (Actual and Desired)', fontsize=20)
-    #plt.plot(np.arange(len(eatact)), eatact)
-    INS_A_DESIRED_PLOT = np.asarray(INS_A_DESIRED)
-    INS_A_ACTUAL_PLOT = np.asarray(INS_A_ACTUAL)
-    ax = fig.add_subplot(211)
-    ax.set_xlabel('Time (ms)')
-    ax.set_ylabel('Activity (normalized)')
-    for pop in POPULATIONS :
-        ax.plot(VA_DESIRED_TIMES, INS_A_DESIRED_PLOT[:, POPULATIONS[pop]], label=pop)
-    stt, sts = [], []
-    curr = 0
-    xs, ys = VC_ACTUAL_PLOT.shape
-    for i, stat in zip(STATE_CHANGE_TIMES, STATE_CHANGE_STATE) :
-        if True :
-            ax.axvline(i, color='r')
-            if i <= curr*50 :
-                stt.append(i)
-                sts.append(stat)
-            else :
-                for j in range(curr+1, i/50+1) :
-                    stt.append(j*50)
-                    sts.append(str(j*50))
-                curr = i/50
-                stt.append(i)
-                sts.append(stat)
-    ax.set_xticks(stt)
-    ax.set_xticklabels(sts, rotation=60)
-    ax.legend()
-    ax = fig.add_subplot(212)
-    ax.set_xlabel('Time (ms)')
-    ax.set_ylabel('Activity (normalized)')
-    for pop in POPULATIONS :
-        ax.plot(VA_DESIRED_TIMES, INS_A_ACTUAL_PLOT[:, POPULATIONS[pop]], label=pop)
-    ax.legend()
-
-    plotPath(traces_x, traces_z, 3)
-
-
-    plt.show()
+    pdf = matplotlib.backends.backend_pdf.PdfPages("output.pdf")
+    for fig in xrange(1, plt.figure().number): ## will open an empty extra figure :(
+        pdf.savefig( fig )
+    pdf.close()

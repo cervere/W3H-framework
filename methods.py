@@ -10,9 +10,11 @@ from mpl_toolkits.mplot3d import Axes3D
 debug = False
 
 REACH_SCOPE = 2
-SEE_SCOPE = 5
+SEE_SCOPE = 8
 APPEAR_SCOPE = 15
 AGENT_FOV = np.pi * (2./3)
+
+RANDOM_NOISE = np.random.uniform(0,.1, 10000)
 
 
 def inFOV (agent, item, fov=AGENT_FOV) :
@@ -51,6 +53,10 @@ def getYawDelta(targetx, targetz, sourcex, sourcez, syaw) :
         # Normalise:
     #difference /= 180.0
     return difference
+
+def getNoise(size=1) :
+    np.random.shuffle(RANDOM_NOISE)
+    return RANDOM_NOISE[: size]
 
 def setCues(moment, x, z, far_entities):
     sx, sz = moment['state']['location']['position']['x'], moment['state']['location']['position']['z']
@@ -241,6 +247,50 @@ def plotItems(myX, myZ, obX, obZ, obYaws, fig, subplot) :
     ax.set_xlim(xmin=-50, xmax=50)
     ax.set_ylim(ymin=-50, ymax=50)
     fig.gca().invert_xaxis()
+
+def plotPath(myX, myZ, fig) :
+    fig = plt.figure(fig)
+    ax = fig.add_subplot(111)
+    ax.plot(np.array(myX), np.array(myZ))
+    ax.set_xlim(xmin=-10, xmax=10)
+    ax.set_ylim(ymin=0, ymax=50)
+    fig.gca().invert_xaxis()
+
+def genericPlot(TIMES, DESIREDVALUES, ACTUALVALUES, TITLE, ESTIMATEVALUES=[]) :
+    fig, (ax1, ax2) = plt.subplots(nrows=2, sharex=True)
+    fig.suptitle(TITLE, fontsize=20)
+    ax1.set_ylabel('Activity (normalized)')
+    ax1.set_title('Desired')
+    ax1.set_ylim(ymin=0, ymax=1.2)
+    for pop in POPULATIONS :
+        ax1.plot(TIMES, DESIREDVALUES[:, POPULATIONS[pop]], label=pop)
+    box = ax1.get_position()
+    ax1.set_position([box.x0, box.y0, box.width , box.height])
+    ax1.legend(fontsize="x-small", bbox_to_anchor=[0.5, 0], loc='upper center', ncol=4, borderaxespad=0.25)
+    ax2.set_xlabel('Time (ms)')
+    ax2.set_ylabel('Activity (normalized)')
+    ax2.set_title('Actual')
+    ax2.set_ylim(ymin=0, ymax=1.2)
+    for pop in POPULATIONS :
+        ax2.plot(TIMES, ACTUALVALUES[:, POPULATIONS[pop]], label=pop)
+    if len(ESTIMATEVALUES) > 0 :
+        ax2.plot(TIMES, ESTIMATEVALUES, '--', linewidth=2)
+
+    # for i, stat in zip(STATE_CHANGE_TIMES, STATE_CHANGE_STATE) :
+    #     if True :
+    #         ax.axvline(i, color='r')
+    #         if i <= curr*50 :
+    #             stt.append(i)
+    #             sts.append(stat)
+    #         else :
+    #             for j in range(curr+1, i/50+1) :
+    #                 stt.append(j*50)
+    #                 sts.append(str(j*50))
+    #             curr = i/50
+    #             stt.append(i)
+    #             sts.append(stat)
+    # ax.set_xticks(stt)
+    # ax.set_xticklabels(sts, rotation=60)
 
 #struct = np.random.normal(.1, .05, (20,20))
 struct = np.zeros((20,20)) + .1

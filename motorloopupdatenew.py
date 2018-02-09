@@ -45,6 +45,33 @@ class MotorCortex(object) :
             self.nextAction = actionMap[self.state]["act"]
             self.requestState = actionMap[self.state]["next"]
 
+    def resetValues(self) :
+        print 'Resetting values'
+        self.estimate_turn[:]["Iext"] = .1
+        self.estimate_move[:]["Iext"] = .1
+        self.values_turn[:]["Iext"] = .1
+        self.values_move[:]["Iext"] = .1
+
+    def isTurningEstimateOn(self) :
+        return np.max(self.estimate_turn[:]["Iext"]) > .25
+
+    def activateEstimateTurn(self, targetYaw=0) :
+        self.resetValues()
+        self.estimate_turn[0]["Iext"] = .75
+        self.estimate_turn[0]["note"] = "setYaw " + str(targetYaw) + ";"
+
+    def activateTurn(self, targetYaw=0) :
+        self.resetValues()
+        self.values_turn[0]["Iext"] = .75
+        self.values_turn[0]["note"] = "setYaw " + str(targetYaw) + ";"
+
+    def activateEstimateMove(self, target = []) :
+        self.resetValues()
+        self.estimate_move[0]["Iext"] = .75
+        if target != [] :
+            self.estimate_move[0]["note"] = "tpx " + target[0] + "; tpz "+ target[1] +";"
+
+
 class AbstractBasalGanglia(object) :
     def __init__ (self, name, strategy=lambda x : np.argmax(x)) :
         self.name = name
@@ -115,6 +142,7 @@ class VisualCortex(object) :
         self.BGOverride = False
         self._plotCount = 0
         self.values = np.zeros(MAXIMUM_STIMULI, valuetype)
+        self.estimate_move = np.zeros(1, motion)
 
     def process(self, moment) :
         myLoc = moment['state']['location']['position']
@@ -128,20 +156,27 @@ class VisualCortex(object) :
             obX.append(it["x"])
             obZ.append(it["z"])
             obName.append(it["name"])
+
+        if not self.MC.isTurningEstimateOn() and np.max(self.estimate_move[:]["Iext"]) > .25 :
+            print 'here ',  self.estimate_move[:]["Iext"]
+            self.MC.activateEstimateMove()
         i = 0
         MMA = self.MC.pop
         self.values["actual"][:] = 0
         self.ACC.hunger_values[:] = 0
         self.ACC.thirst_values[:] = 0
+        seeitems = []
         for re in moment['observation']['reach'] :
             self.ACC.hunger_values[POPULATIONS[re["name"]]] = FOOD_VALUES[re["name"]]
             self.ACC.thirst_values[POPULATIONS[re["name"]]] = WATER_VALUES[re["name"]]
             self.values["actual"][POPULATIONS[re["name"]]] = 1
         for se in moment['observation']['see'] :
+            seeitems.append(se["name"])
             self.ACC.hunger_values[POPULATIONS[se["name"]]] = FOOD_VALUES[se["name"]]
             self.ACC.thirst_values[POPULATIONS[se["name"]]] = WATER_VALUES[se["name"]]
             self.values["actual"][POPULATIONS[se["name"]]] = 1
-
+        print 'see items' , seeitems
+        appearitems = []
         for it in moment['observation']['appear'] :
             self.values["actual"][POPULATIONS[it["name"]]] = 1
             self.ACC.hunger_values[POPULATIONS[it["name"]]] = FOOD_VALUES[it["name"]]
@@ -157,15 +192,24 @@ class VisualCortex(object) :
             VT[i]["Iext"] = 1.
             MMA["command"][i]["yaw"] = it["yaw"]
             MMA["command"][i]["pos"] = np.array([it["x"], it["z"]])
+            appearitems.append([it["x"], it["z"]])
             i += 1
-        self.values["actual"] +=  np.random.uniform(0,.1, self.values["actual"].size)
-
-        if self.MC.state == "EXPLORE" and i > 0:
-            print 'Found items while trying to explore ', obName, obYaws, self.PPC.x, self.PPC.z
-            self.BGOverride = True
-            self._plotCount += 1
-            print 'When objects appeared ; Hunger : ', self.ACC.getCurrentHunger(), ', Thirst : ', self.ACC.getCurrentThirst()
-            self.ACC.randomcheck()
+        self.values["actual"] +=  getNoise(self.values["actual"].size)
+        if i > 0 :
+            k = np.argmax(self.values["actual"])
+            if np.argmax(self.PPC.values_move[:]["desired"] < .25) : self.PPC.values_move[k]["desired"] = .75
+            if np.argmax(self.ACC.insula_a.values[:]["desired"]) < .25 : self.ACC.insula_a.values[k]["desired"] = .75
+            print 'appear items ', appearitems
+            meanpoint = np.mean(appearitems, axis=0)
+            meanyaw = getYawDelta(meanpoint[0], meanpoint[1], myLoc["x"], myLoc["z"], myDir["yaw"])
+            print self.MC.estimate_turn[:]["Iext"]
+            if not self.MC.isTurningEstimateOn() :
+                print 'setting target yaw'
+                self.PPC.targetYaw = MMA["command"][k]["yaw"]
+                self.MC.activateTurn(MMA["command"][k]["yaw"])
+                self.estimate_move[:]["Iext"] = .1
+                print 'after : ' , self.MC.estimate_turn[:]["Iext"]
+            print 'Mean : ' , meanpoint, ' target yaw : ', self.PPC.targetYaw, 'my yaw : ' , self.PPC.yaw
             #plotItems(myX, myZ, obX, obZ, obYaws, self._plotCount, 111)
         self.values["desired"] = self.ACC.insula_a.values["desired"]
 
@@ -177,13 +221,13 @@ class Insula_A(object):
         self.values = np.zeros(MAXIMUM_STIMULI, valuetype)
 
     def timeEffect(self) :
-        self.hunger += 1
-        self.thirst += 1
+        self.hunger += .6
+        self.thirst += .8
         self.energy -= 1
 
     def moveEffect(self) :
         self.hunger += 2
-        self.thirst += 3
+        self.thirst += 4
         self.energy -= 2
 
     def status(self) :
@@ -235,6 +279,9 @@ class PrimarySomatoSensoryCortex(object) :
             print 'nothing'
         self.update()
 
+    def continueTurn(self) :
+        return (np.abs(self.yaw - self.targetYaw) > 1.5)
+
     def update(self) :
         self.targetOn = self.moving or self.turning or self.waiting
 
@@ -271,7 +318,7 @@ class AnteriorCingulateCortex(object) :
     def getCurrentThirst(self) :
         return self.insula_a.thirst
 
-    def randomcheck(self) :
+    def check(self) :
         self.insula_a.values["desired"][:] = 0
         if self.getCurrentThirst() > THIRST_LIMIT :
             for item in THIRST_ITEMS :
@@ -279,11 +326,68 @@ class AnteriorCingulateCortex(object) :
         if self.getCurrentHunger() > HUNGER_LIMIT :
             for item in HUNGER_ITEMS :
                 self.insula_a.values["desired"][POPULATIONS[item]] = 1
-        self.insula_a.values["desired"] +=  np.random.uniform(0,.1, self.insula_a.values["desired"].size)
+        self.insula_a.values["desired"] +=  getNoise(self.insula_a.values["desired"].size)
 
 
     def status(self) :
         print 'From ACC : Hunger : %4.2f, Thirst : %4.2f' % (self.insula_a.hunger, self.insula_a.thirst)
+
+class ACCVAConnection(object) :
+
+    def __init__(self, source, target, weights = np.ones(MAXIMUM_STIMULI)) :
+        self.source = source #ACC
+        self.target = target #VA
+        self.weights= weights
+
+    def propagate(self) :
+        print 'Propogating'
+        '''
+        VA updating ACC
+        Insula_a actual updating ACC
+        ACC deciding (it could be either among stimuli or just w/o stimuli)
+        ACC updates VA
+        ACC updates Insula_a desired
+        '''
+        #self.source.insula_a.values["desired"][:] = 0
+        ACC = self.source
+        VA = self.target
+        need = False
+        # VA updating ACC
+        VAPop = self.target.pop
+        for it in VAPop :
+            if it["name"] != '' :
+                ACC.hunger_values[POPULATIONS[it["name"]]] = it["valence"]["food"]
+                ACC.thirst_values[POPULATIONS[it["name"]]] = it["valence"]["water"]
+
+        #Insula_a actual updating ACC
+        if ACC.getCurrentThirst() > THIRST_LIMIT :
+            for item in THIRST_ITEMS :
+                ACC.insula_a.values["desired"][POPULATIONS[item]] = .5
+                VA.values["desired"][POPULATIONS[item]] = .5
+        if ACC.getCurrentHunger() > HUNGER_LIMIT :
+            for item in HUNGER_ITEMS :
+                ACC.insula_a.values["desired"][POPULATIONS[item]] = .5
+                VA.values["desired"][POPULATIONS[item]] = .5
+        ACC.insula_a.values["desired"] +=  getNoise(ACC.insula_a.values["desired"].size)
+        VA.values["desired"] +=  getNoise(VA.values["desired"].size)
+        # This is not urgent need, but just a motivation to explore
+        need = (ACC.getCurrentThirst() + ACC.getCurrentHunger() > 0)
+        print 'checking need : ', need, ' and VC actual values : ', VA.values["actual"]
+        if need and np.max(VA.values["actual"]) < .25 :
+            print 'There is a current need, activating estimates '
+            VA.estimate_move[0]["Iext"] = .75 + getNoise()
+
+class MCPPCConnection(object) :
+
+    def __init__(self, source, target, weights = np.ones(MAXIMUM_STIMULI)) :
+        self.source = source #MC
+        self.target = target #PPC
+        self.weights= weights
+
+    def propagate(self) :
+        if np.max(self.source.estimate_turn[:]["Iext"]) > .25 and not self.target.continueTurn() :
+            self.source.resetValues()
+
 
 class Connection(object) :
 
@@ -295,6 +399,7 @@ class Connection(object) :
     def propagate(self) :
         for i in range(MAXIMUM_STIMULI) :
             self.target[i] = self.weights[i] * self.source[i]
+
 
 def OneToOne(source, target, weights) :
     for i in range(target.shape[0]):
