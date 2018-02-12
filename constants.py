@@ -14,16 +14,17 @@ Y_BASIC_ITEM = 227
     VITALS
 '''
 THIRST_DEFAULT = 10
-THIRST_LIMIT = 100
+THIRST_LIMIT = 50
 THIRST_RATE_INC = {"move" : 1, "jump" : 3}
 HUNGER_DEFAULT = 10
-HUNGER_LIMIT = 80
+HUNGER_LIMIT = 40
 HUNGER_RATE_INC = {"move" : 1, "jump" : 3}
 HUNGER_RATE_DEC = {"consume" : 3}
 
 PREFERENCE_VALUES = {"apple" : 6, "cake" : 9, "water_bucket" : 5, "mushroom_stew" : 7}
 FOOD_VALUES = {"apple" : 9, "cake" : 7, "water_bucket" : 3, "mushroom_stew" : 4}
 WATER_VALUES = {"apple" : 2, "cake" : 1, "water_bucket" : 9, "mushroom_stew" : 7}
+
 
 POPULATIONS = {"apple" : 0, "cake" : 1, "water_bucket" : 2, "mushroom_stew" : 3}
 HUNGER_ITEMS = ["apple", "cake"]

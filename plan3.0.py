@@ -114,29 +114,39 @@ for iRepeat in range(num_reps):
     ACC = AnteriorCingulateCortex(INS_A)
     BG = BasalGanglia()
     PPC = PrimarySomatoSensoryCortex()
-    MC = MotorCortex()
+    SC = SuperiorColliculus()
+    FEF = FrontalEyeFields()
+    MC = MotorCortex(PPC)
     DLS = AbstractBasalGanglia("DLS")
-    VC = VisualCortex(MC, PPC, ACC)
+    VC = VisualCortex(MC, PPC, ACC, SC)
     eatact = []
     INS_A_DESIRED = []
-    INS_A_DESIRED_TIMES = []
-    VA_DESIRED = []
-    VA_ESTIMATE = []
-    VA_DESIRED_TIMES = []
     INS_A_ACTUAL = []
+    SC_DESIRED = []
+    SC_ACTUAL = []
+    TURN_ESTIMATE_VALUES = {"desired" : [], "actual" : []}
+    PPC_DESIRED = []
+    PPC_ACTUAL = []
+    MOVE_ESTIMATE_VALUES = {"desired" : [], "actual" : []}
+    VA_DESIRED = []
+    VA_ESTIMATE = {"desired" : [], "actual" : []}
+    VA_DESIRED_TIMES = []
+    MOTOR_VALUES = []
+    MOTOR_ESTIMATE_VALUES = []
     HUNGER_VALUES = []
     THIRST_VALUES = []
+    ACC_HUNGER_VALUES = []
+    ACC_THIRST_VALUES = []
     VA_ACTUAL = []
     STATE_CHANGE_TIMES = []
     STATE_CHANGE_STATE = []
     traces_x, traces_z = [], []
-    prev = MC.state
     checkTimes = [25, 50, 75]
     checking = 0
     prevSeq = ''
     note = ''
     ACCtoVA = ACCVAConnection(ACC, VC)
-    MCtoPPC = MCPPCConnection(MC, PPC)
+    MCtoVA = MCVAConnection(MC, VC)
     movingOn, turningOn = False, False
     movenote, turnnote = '', ''
     np.random.shuffle(RANDOM_NOISE)
@@ -165,9 +175,12 @@ for iRepeat in range(num_reps):
                 #INS_A.status()
                 #ACC.status()
                 ACC.check()
+            if VC.process(moment) < 1 :
+                print 'Stopping immediately : visual returned zero'
+                SetVelocity(0)
+                PPC.moving = False
             ACCtoVA.propagate()
-            MCtoPPC.propagate()
-            print 'beginning ', MC.estimate_turn["Iext"]
+            MCtoVA.propagate()
             '''
              Perceive(Observations)
                 * Internal
@@ -190,26 +203,37 @@ for iRepeat in range(num_reps):
                     ^^ - Later the consumption could be gradual over time, instead of an instantaneous update.
 
             '''
-            VC.process(moment)
             #BG.process(moment, VC, PPC, MC,ACC)
             if BG.msg != "" :
                 SendChat(BG.msg)
                 BG.msg = ""
             #MC.process(agent_host)
             if False and (not PPC.targetOn or VC.BGOverride) :
-                print 'should never'
                 if MC.nextAction != "" :
                     if currentSequence != "" : currentSequence += '; ' + MC.nextAction
                     else : currentSequence = MC.nextAction
-                    #print 'executing ', currentSequence
             VA_DESIRED_TIMES.append(moment['globalTime'])
             VA_DESIRED.append(np.array(VC.values["desired"]))
-            VA_ESTIMATE.append(np.array(VC.estimate_move["Iext"]))
+            VA_ESTIMATE["desired"].append(np.array(VC.value_estimate["desired"]))
+            VA_ESTIMATE["actual"].append(np.array(VC.value_estimate["actual"]))
             VA_ACTUAL.append(np.array(VC.values["actual"]))
             INS_A_DESIRED.append(np.array(INS_A.values["desired"]))
             INS_A_ACTUAL.append(np.array(INS_A.values["actual"]))
+            SC_DESIRED.append(np.array(SC.values_turn["desired"]))
+            SC_ACTUAL.append(np.array(SC.values_turn["actual"]))
+            TURN_ESTIMATE_VALUES["desired"].append(np.array(SC.estimate_turn["desired"]))
+            TURN_ESTIMATE_VALUES["actual"].append(np.array(SC.estimate_turn["actual"]))
+            PPC_DESIRED.append(np.array(PPC.values_move["desired"]))
+            PPC_ACTUAL.append(np.array(PPC.values_move["actual"]))
+            MOVE_ESTIMATE_VALUES["desired"].append(np.array(PPC.estimate_move["desired"]))
+            MOVE_ESTIMATE_VALUES["actual"].append(np.array(PPC.estimate_move["actual"]))
+            MOTOR_VALUES.append(np.array(MC.values["Iext"]))
+            MOTOR_ESTIMATE_VALUES.append(np.array(MC.value_estimate["Iext"]))
             HUNGER_VALUES.append(ACC.getCurrentHunger())
             THIRST_VALUES.append(ACC.getCurrentThirst())
+            ACC_HUNGER_VALUES.append(np.array(ACC.hunger_values))
+            ACC_THIRST_VALUES.append(np.array(ACC.thirst_values))
+
 
             '''
             ACT
@@ -225,16 +249,18 @@ for iRepeat in range(num_reps):
                 MC.values_move[:]["Iext"] = .1
 
 
-            motor_pop = np.concatenate([MC.values_turn["Iext"], MC.estimate_turn["Iext"]])
+            '''
+            Decide Action
+            '''
+            motor_pop = np.concatenate([FEF.values["Iext"], FEF.value_estimate["Iext"]])
             winning_motor = np.argmax(motor_pop)
             print 'time ', moment['globalTime']
-            print 'just before ', MC.estimate_turn["Iext"]
-            if not movingOn :
+            if True : #not PPC.moving :
                 if motor_pop[winning_motor] > 0.25 :
-                    if winning_motor > MC.values_turn.size - 1 :
-                        turnnote = MC.estimate_turn[winning_motor - MC.values_turn.size]["note"]
+                    if winning_motor > FEF.values.size - 1 :
+                        turnnote = FEF.value_estimate[winning_motor - FEF.values.size]["note"]
                     else :
-                        turnnote = MC.values_turn[winning_motor]["note"]
+                        turnnote = FEF.values[winning_motor]["note"]
                     if turnnote != "" and turnnote.split(" ")[1].split(";")[0] > 0 :
                         print 'turnnote ', turnnote
                         turnSpeed = 0.2
@@ -247,23 +273,22 @@ for iRepeat in range(num_reps):
                     turningOn = False
                     turnnote = ''
             print 'com : ', turnnote
-            motor_pop_move = np.concatenate([MC.values_move["Iext"], MC.estimate_move["Iext"]])
+            motor_pop_move = np.concatenate([MC.values["Iext"], MC.value_estimate["Iext"]])
             winning_motor = np.argmax(motor_pop_move)
-            if not turningOn :
+            if True : #not turningOn :
                 if motor_pop_move[winning_motor] > 0.25 :
-                    print 'Some move active'
-                    if winning_motor > MC.values_move.size - 1 :
-                        movenote = MC.estimate_move[winning_motor - MC.values_move.size]["note"]
+                    if winning_motor > MC.values.size - 1 :
+                        movenote = MC.value_estimate[winning_motor - MC.values.size]["note"]
                     else :
-                        movenote = MC.values_move[winning_motor]["note"]
+                        movenote = MC.values[winning_motor]["note"]
+                    print 'Some move active', movenote
                     currentSequence += "move .6; "
-                    movingOn = True
+                    PPC.moving = True
                 else :
                     currentSequence += "move 0;" + movenote
-                    movingOn = False
+                    PPC.moving = False
                     movenote = ''
             #currentSequence = prevSeq + currentSequence
-            print 'while prev com : ', movenote
 
 
         '''
@@ -300,8 +325,6 @@ for iRepeat in range(num_reps):
         if PPC.moving : INS_A.moveEffect()
         if VC.BGOverride : VC.BGOverride = False
         eatactens = actionMap["LOCATE"]["ens"]
-        print eatactens
-        eatact.append(BG.MC_gates[eatactens[0], eatactens[1]])
         time.sleep(0.1)
 
 
@@ -314,17 +337,27 @@ for iRepeat in range(num_reps):
     time.sleep(0.5) # Give the mod a little time to prepare for the next mission.
 
     VC._plotCount += 1
-    INS_A_DESIRED_PLOT = np.asarray(INS_A_DESIRED)
     VC_DESIRED_PLOT = np.asarray(VA_DESIRED)
-    INS_A_ACTUAL_PLOT = np.asarray(INS_A_ACTUAL)
     VC_ACTUAL_PLOT = np.asarray(VA_ACTUAL)
+    INS_A_DESIRED_PLOT = np.asarray(INS_A_DESIRED)
+    INS_A_ACTUAL_PLOT = np.asarray(INS_A_ACTUAL)
+    SC_DESIRED_PLOT = np.asarray(SC_DESIRED)
+    SC_ACTUAL_PLOT = np.asarray(SC_ACTUAL)
+    PPC_DESIRED_PLOT = np.asarray(PPC_DESIRED)
+    PPC_ACTUAL_PLOT = np.asarray(PPC_ACTUAL)
+    ACC_HUNGER_PLOT = np.asarray(ACC_HUNGER_VALUES)
+    ACC_THIRST_PLOT = np.asarray(ACC_THIRST_VALUES)
+    MOTOR_VALUES_PLOT = np.asarray(MOTOR_VALUES)
 
     genericPlot(VA_DESIRED_TIMES, VC_DESIRED_PLOT, VC_ACTUAL_PLOT, 'Visual Areas', VA_ESTIMATE)
+    genericPlot(VA_DESIRED_TIMES, SC_DESIRED_PLOT, SC_ACTUAL_PLOT, 'Superior Colliculus(SC)', TURN_ESTIMATE_VALUES)
+    genericPlot(VA_DESIRED_TIMES, PPC_DESIRED_PLOT, PPC_ACTUAL_PLOT, 'PrimarySomatoSensoryCortex (PPC)', MOVE_ESTIMATE_VALUES)
     genericPlot(VA_DESIRED_TIMES, INS_A_DESIRED_PLOT, INS_A_ACTUAL_PLOT, 'Insular Cortex(-ACC)')
+    genericPlot(VA_DESIRED_TIMES, ACC_HUNGER_PLOT, ACC_THIRST_PLOT, 'ACC')
 
-    plotPath(traces_x, traces_z, 4)
+    plotPath(traces_x, traces_z)
 
-    fig = plt.figure(3)
+    fig = plt.figure()
     fig.suptitle('Hunger and Thirst', fontsize=20)
     ax = fig.add_subplot(111)
     ax.set_xlabel('Time (ms)')
@@ -333,6 +366,11 @@ for iRepeat in range(num_reps):
     ax.plot(VA_DESIRED_TIMES, HUNGER_VALUES, label='hunger')
     ax.plot(VA_DESIRED_TIMES, THIRST_VALUES, label='thirst')
     ax.legend(loc='center left',fontsize="x-small", bbox_to_anchor=(1, 0.5))
+
+    FRONTALVALUES = []
+    FRONTALVALUES.append(MOTOR_VALUES_PLOT)
+    genericFrontalPlot(VA_DESIRED_TIMES, ['Motor', 'ACC', 'OFC'], FRONTALVALUES, 'Frontal', MOTOR_ESTIMATE_VALUES)
+
 
     #plt.show()
 

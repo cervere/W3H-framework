@@ -23,6 +23,14 @@ def inFOV (agent, item, fov=AGENT_FOV) :
     x = (item[1] - c) / m
     return item[0] < x
 
+def noisyZeros(size, dtype=None) :
+    if dtype is None :
+        return np.zeros(size) + getNoise(size)
+    elif len(dtype) > 0 :
+        zeros = np.zeros(size, dtype)
+        for i in zeros.dtype.names :
+            zeros[i][:] += getNoise(size)
+        return zeros
 
 def setPosition(moment, x,y,z, yaw=90, pitch=1.0) :
     ''' See moment.json for the representation of each moment in time.
@@ -58,6 +66,9 @@ def getNoise(size=1) :
     np.random.shuffle(RANDOM_NOISE)
     return RANDOM_NOISE[: size]
 
+def euclDist(x1, z1, x2, z2) :
+    return np.sqrt((z2 - z1)**2 + (x2 - x1)**2)
+
 def setCues(moment, x, z, far_entities):
     sx, sz = moment['state']['location']['position']['x'], moment['state']['location']['position']['z']
     syaw = moment['state']['location']['orientation']["yaw"]
@@ -75,8 +86,8 @@ def setCues(moment, x, z, far_entities):
         trans_point = [ex, ez]
         if ex > x : trans_point[0] = 2*x - ex
         ent['yaw'] = getYawDelta(ex, ez, sx, sz, syaw)
-        zdist = np.sqrt((ez - z)**2 + (ex - x)**2)
-
+        zdist = euclDist(ex, ez, sx, sz)
+        ent['distance'] = zdist
         if   zdist <= REACH_SCOPE :
             moment['observation']['reach'].append(ent)
         elif zdist <= APPEAR_SCOPE :
@@ -248,33 +259,35 @@ def plotItems(myX, myZ, obX, obZ, obYaws, fig, subplot) :
     ax.set_ylim(ymin=-50, ymax=50)
     fig.gca().invert_xaxis()
 
-def plotPath(myX, myZ, fig) :
-    fig = plt.figure(fig)
+def plotPath(myX, myZ) :
+    fig = plt.figure()
     ax = fig.add_subplot(111)
     ax.plot(np.array(myX), np.array(myZ))
     ax.set_xlim(xmin=-10, xmax=10)
     ax.set_ylim(ymin=0, ymax=50)
     fig.gca().invert_xaxis()
 
-def genericPlot(TIMES, DESIREDVALUES, ACTUALVALUES, TITLE, ESTIMATEVALUES=[]) :
+def genericPlot(TIMES, DESIREDVALUES, ACTUALVALUES, TITLE, ESTIMATEVALUES={}) :
     fig, (ax1, ax2) = plt.subplots(nrows=2, sharex=True)
     fig.suptitle(TITLE, fontsize=20)
     ax1.set_ylabel('Activity (normalized)')
     ax1.set_title('Desired')
-    ax1.set_ylim(ymin=0, ymax=1.2)
+    ax1.set_ylim(ymin=0, ymax=1.5)
     for pop in POPULATIONS :
         ax1.plot(TIMES, DESIREDVALUES[:, POPULATIONS[pop]], label=pop)
     box = ax1.get_position()
     ax1.set_position([box.x0, box.y0, box.width , box.height])
     ax1.legend(fontsize="x-small", bbox_to_anchor=[0.5, 0], loc='upper center', ncol=4, borderaxespad=0.25)
+    if len(ESTIMATEVALUES) > 0  and len(ESTIMATEVALUES["desired"]) > 0 :
+        ax1.plot(TIMES, ESTIMATEVALUES["desired"], '--', linewidth=2)
     ax2.set_xlabel('Time (ms)')
     ax2.set_ylabel('Activity (normalized)')
     ax2.set_title('Actual')
-    ax2.set_ylim(ymin=0, ymax=1.2)
+    ax2.set_ylim(ymin=0, ymax=1.5)
     for pop in POPULATIONS :
         ax2.plot(TIMES, ACTUALVALUES[:, POPULATIONS[pop]], label=pop)
-    if len(ESTIMATEVALUES) > 0 :
-        ax2.plot(TIMES, ESTIMATEVALUES, '--', linewidth=2)
+    if len(ESTIMATEVALUES) > 0  and len(ESTIMATEVALUES["actual"]) > 0 :
+        ax2.plot(TIMES, ESTIMATEVALUES["actual"], '--', linewidth=2)
 
     # for i, stat in zip(STATE_CHANGE_TIMES, STATE_CHANGE_STATE) :
     #     if True :
@@ -292,6 +305,27 @@ def genericPlot(TIMES, DESIREDVALUES, ACTUALVALUES, TITLE, ESTIMATEVALUES=[]) :
     # ax.set_xticks(stt)
     # ax.set_xticklabels(sts, rotation=60)
 
+def genericFrontalPlot(TIMES, FRONTALREGIONS, FRONTALREGIONSVALUES, TITLE, ESTIMATEVALUES=[]) :
+    fig, (ax1, ax2, ax3) = plt.subplots(nrows=3, sharex=True)
+    fig.suptitle(TITLE, fontsize=20)
+    ax1.set_ylabel('Activity (normalized)')
+    ax1.set_title(FRONTALREGIONS[0])
+    ax1.set_ylim(ymin=0, ymax=1.5)
+    for pop in POPULATIONS :
+        ax1.plot(TIMES, FRONTALREGIONSVALUES[0][:, POPULATIONS[pop]], label=pop)
+    box = ax1.get_position()
+    ax1.set_position([box.x0, box.y0, box.width , box.height])
+    ax1.legend(fontsize="x-small", bbox_to_anchor=[0.5, 0], loc='upper center', ncol=4, borderaxespad=0.25)
+    if len(ESTIMATEVALUES) > 0 :
+        print len(TIMES)
+        print len(ESTIMATEVALUES)
+        ax1.plot(TIMES, ESTIMATEVALUES, '--', linewidth=2)
+    ax2.set_xlabel('Time (ms)')
+    ax2.set_ylabel('Activity (normalized)')
+    ax2.set_title(FRONTALREGIONS[1])
+    ax2.set_ylim(ymin=0, ymax=1.5)
+
+#==============================================================================
 #struct = np.random.normal(.1, .05, (20,20))
 struct = np.zeros((20,20)) + .1
 #plotActivity(plt, struct)
