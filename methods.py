@@ -306,24 +306,21 @@ def genericPlot(TIMES, DESIREDVALUES, ACTUALVALUES, TITLE, ESTIMATEVALUES={}) :
     # ax.set_xticklabels(sts, rotation=60)
 
 def genericFrontalPlot(TIMES, FRONTALREGIONS, FRONTALREGIONSVALUES, TITLE, ESTIMATEVALUES=[]) :
-    fig, (ax1, ax2, ax3) = plt.subplots(nrows=3, sharex=True)
+    num = len(FRONTALREGIONSVALUES)
+    fig, axs = plt.subplots(nrows=num, sharex=True)
     fig.suptitle(TITLE, fontsize=20)
-    ax1.set_ylabel('Activity (normalized)')
-    ax1.set_title(FRONTALREGIONS[0])
-    ax1.set_ylim(ymin=0, ymax=1.5)
-    for pop in POPULATIONS :
-        ax1.plot(TIMES, FRONTALREGIONSVALUES[0][:, POPULATIONS[pop]], label=pop)
-    box = ax1.get_position()
-    ax1.set_position([box.x0, box.y0, box.width , box.height])
-    ax1.legend(fontsize="x-small", bbox_to_anchor=[0.5, 0], loc='upper center', ncol=4, borderaxespad=0.25)
-    if len(ESTIMATEVALUES) > 0 :
-        print len(TIMES)
-        print len(ESTIMATEVALUES)
-        ax1.plot(TIMES, ESTIMATEVALUES, '--', linewidth=2)
-    ax2.set_xlabel('Time (ms)')
-    ax2.set_ylabel('Activity (normalized)')
-    ax2.set_title(FRONTALREGIONS[1])
-    ax2.set_ylim(ymin=0, ymax=1.5)
+    for i, ax in zip(range(len(axs)), axs) :
+        ax.set_ylabel('Activity (normalized)')
+        ax.set_title(FRONTALREGIONS[i])
+        ax.set_ylim(ymin=0, ymax=1.5)
+        for pop in POPULATIONS :
+            ax.plot(TIMES, FRONTALREGIONSVALUES[i][:, POPULATIONS[pop]], label=pop)
+        box = ax.get_position()
+        ax.set_position([box.x0, box.y0, box.width , box.height])
+        ax.legend(fontsize="x-small", bbox_to_anchor=[0.5, 0], loc='upper center', ncol=4, borderaxespad=0.25)
+        if len(ESTIMATEVALUES[i]) > 0 :
+            ax.plot(TIMES, ESTIMATEVALUES[i], '--', linewidth=2)
+    ax.set_xlabel('Time (ms)')
 
 #==============================================================================
 #struct = np.random.normal(.1, .05, (20,20))

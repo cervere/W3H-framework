@@ -23,7 +23,7 @@ def GetMissionXML(summary, itemDrawingXML):
                 <DrawingDecorator>
                 ''' + itemDrawingXML + '''
                 </DrawingDecorator>
-                <ServerQuitFromTimeUp timeLimitMs="10000"/>
+                <ServerQuitFromTimeUp timeLimitMs="15000"/>
                 <ServerQuitWhenAnyAgentFinishes />
             </ServerHandlers>
         </ServerSection>

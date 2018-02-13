@@ -115,7 +115,7 @@ for iRepeat in range(num_reps):
     BG = BasalGanglia()
     PPC = PrimarySomatoSensoryCortex()
     SC = SuperiorColliculus()
-    FEF = FrontalEyeFields()
+    FEF = FrontalEyeFields(SC)
     MC = MotorCortex(PPC)
     DLS = AbstractBasalGanglia("DLS")
     VC = VisualCortex(MC, PPC, ACC, SC)
@@ -133,6 +133,8 @@ for iRepeat in range(num_reps):
     VA_DESIRED_TIMES = []
     MOTOR_VALUES = []
     MOTOR_ESTIMATE_VALUES = []
+    FEF_VALUES = []
+    FEF_ESTIMATE_VALUES = []
     HUNGER_VALUES = []
     THIRST_VALUES = []
     ACC_HUNGER_VALUES = []
@@ -147,6 +149,7 @@ for iRepeat in range(num_reps):
     note = ''
     ACCtoVA = ACCVAConnection(ACC, VC)
     MCtoVA = MCVAConnection(MC, VC)
+    FEFtoVA = FEFVAConnection(FEF, VC)
     movingOn, turningOn = False, False
     movenote, turnnote = '', ''
     np.random.shuffle(RANDOM_NOISE)
@@ -175,11 +178,13 @@ for iRepeat in range(num_reps):
                 #INS_A.status()
                 #ACC.status()
                 ACC.check()
-            if VC.process(moment) < 1 :
-                print 'Stopping immediately : visual returned zero'
-                SetVelocity(0)
-                PPC.moving = False
+            VC.process(moment)
+            # if VC.process(moment) < 1 :
+            #     print 'Stopping immediately : visual returned zero'
+            #     SetVelocity(0)
+            #     PPC.moving = False
             ACCtoVA.propagate()
+            FEFtoVA.propagate()
             MCtoVA.propagate()
             '''
              Perceive(Observations)
@@ -219,6 +224,7 @@ for iRepeat in range(num_reps):
             VA_ACTUAL.append(np.array(VC.values["actual"]))
             INS_A_DESIRED.append(np.array(INS_A.values["desired"]))
             INS_A_ACTUAL.append(np.array(INS_A.values["actual"]))
+            print 'SC : ', SC.values_turn["desired"]
             SC_DESIRED.append(np.array(SC.values_turn["desired"]))
             SC_ACTUAL.append(np.array(SC.values_turn["actual"]))
             TURN_ESTIMATE_VALUES["desired"].append(np.array(SC.estimate_turn["desired"]))
@@ -229,6 +235,8 @@ for iRepeat in range(num_reps):
             MOVE_ESTIMATE_VALUES["actual"].append(np.array(PPC.estimate_move["actual"]))
             MOTOR_VALUES.append(np.array(MC.values["Iext"]))
             MOTOR_ESTIMATE_VALUES.append(np.array(MC.value_estimate["Iext"]))
+            FEF_VALUES.append(np.array(FEF.values["Iext"]))
+            FEF_ESTIMATE_VALUES.append(np.array(FEF.value_estimate["Iext"]))
             HUNGER_VALUES.append(ACC.getCurrentHunger())
             THIRST_VALUES.append(ACC.getCurrentThirst())
             ACC_HUNGER_VALUES.append(np.array(ACC.hunger_values))
@@ -252,10 +260,18 @@ for iRepeat in range(num_reps):
             '''
             Decide Action
             '''
+            print 'time ', moment['globalTime']
+            '''
+            If only one of the motor(turn) is active, then turn.
+            Else, check if the estimate is on, then turn
+            Else, don't turn
+            The same applies for move
+
+            Get the turn speed from each of these conditions
+            '''
             motor_pop = np.concatenate([FEF.values["Iext"], FEF.value_estimate["Iext"]])
             winning_motor = np.argmax(motor_pop)
-            print 'time ', moment['globalTime']
-            if True : #not PPC.moving :
+            if (FEF.values["Iext"] > .25).sum() == 1  or FEF.value_estimate["Iext"] > 0.25 : #not PPC.moving :
                 if motor_pop[winning_motor] > 0.25 :
                     if winning_motor > FEF.values.size - 1 :
                         turnnote = FEF.value_estimate[winning_motor - FEF.values.size]["note"]
@@ -274,14 +290,14 @@ for iRepeat in range(num_reps):
                     turnnote = ''
             print 'com : ', turnnote
             motor_pop_move = np.concatenate([MC.values["Iext"], MC.value_estimate["Iext"]])
+            print 'pop move' , motor_pop_move
             winning_motor = np.argmax(motor_pop_move)
             if True : #not turningOn :
-                if motor_pop_move[winning_motor] > 0.25 :
+                if motor_pop_move[winning_motor] > 0.45 :
                     if winning_motor > MC.values.size - 1 :
                         movenote = MC.value_estimate[winning_motor - MC.values.size]["note"]
                     else :
                         movenote = MC.values[winning_motor]["note"]
-                    print 'Some move active', movenote
                     currentSequence += "move .6; "
                     PPC.moving = True
                 else :
@@ -348,6 +364,7 @@ for iRepeat in range(num_reps):
     ACC_HUNGER_PLOT = np.asarray(ACC_HUNGER_VALUES)
     ACC_THIRST_PLOT = np.asarray(ACC_THIRST_VALUES)
     MOTOR_VALUES_PLOT = np.asarray(MOTOR_VALUES)
+    FEF_VALUES_PLOT = np.asarray(FEF_VALUES)
 
     genericPlot(VA_DESIRED_TIMES, VC_DESIRED_PLOT, VC_ACTUAL_PLOT, 'Visual Areas', VA_ESTIMATE)
     genericPlot(VA_DESIRED_TIMES, SC_DESIRED_PLOT, SC_ACTUAL_PLOT, 'Superior Colliculus(SC)', TURN_ESTIMATE_VALUES)
@@ -368,8 +385,12 @@ for iRepeat in range(num_reps):
     ax.legend(loc='center left',fontsize="x-small", bbox_to_anchor=(1, 0.5))
 
     FRONTALVALUES = []
+    FRONTALVALUES.append(FEF_VALUES_PLOT)
     FRONTALVALUES.append(MOTOR_VALUES_PLOT)
-    genericFrontalPlot(VA_DESIRED_TIMES, ['Motor', 'ACC', 'OFC'], FRONTALVALUES, 'Frontal', MOTOR_ESTIMATE_VALUES)
+    ESTIMATE_VALUES=[]
+    ESTIMATE_VALUES.append(FEF_ESTIMATE_VALUES)
+    ESTIMATE_VALUES.append(MOTOR_ESTIMATE_VALUES)
+    genericFrontalPlot(VA_DESIRED_TIMES, ['FEF', 'Motor', 'ACC', 'OFC'], FRONTALVALUES, 'Frontal', ESTIMATE_VALUES)
 
 
     #plt.show()

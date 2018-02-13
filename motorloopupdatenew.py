@@ -38,18 +38,21 @@ class VisualCortex(object) :
         self._plotCount = 0
         self.values = noisyZeros(MAXIMUM_STIMULI, valuetype)
         self.value_estimate = noisyZeros(1, valuetype)
-        self.targetactive = False
+        self.gatheringInfo = 3
 
     def resetValues(self) :
         self.values = noisyZeros(MAXIMUM_STIMULI, valuetype)
         self.value_estimate = noisyZeros(1, valuetype)
 
     def process(self, moment) :
+        '''
+        VCProcess
+        '''
         myLoc = moment['state']['location']['position']
         myDir = moment['state']['location']['orientation']
         self.PPC.x, self.PPC.y, self.PPC.z = myLoc["x"], myLoc["y"], myLoc["z"]
         self.PPC.pos = np.array([myLoc["x"], myLoc["z"]])
-        self.PPC.yaw = myDir["yaw"]
+        self.SC.yaw = myDir["yaw"]
         myX, myZ = myLoc["x"], myLoc["z"]
         obX , obZ, obYaws, obName = [], [], [], []
         self.resetValues()
@@ -98,24 +101,33 @@ class VisualCortex(object) :
             #MMA["command"][i]["pos"] = np.array([it["x"], it["z"]])
             appearitems.append([it["x"], it["z"]])
         if len(appearitems) > 0 :
-            if not self.targetactive :
-                self.targetactive = True
-                return 0
+            '''
+            Just to add some delay
+            '''
+            if self.gatheringInfo > 0 :
+                self.value_estimate["actual"][:] = .5 + getNoise(self.value_estimate["actual"].size)
+                self.MC.working = False
+                self.gatheringInfo -= 1
             else :
+                print 'appear items ', appearitems
                 k = np.argmax(self.values["actual"])
                 if np.argmax(self.PPC.values_move[:]["desired"] < .25) : self.PPC.values_move[k]["desired"] = .75
                 if np.argmax(self.ACC.insula_a.values[:]["desired"]) < .25 : self.ACC.insula_a.values[k]["desired"] = .75
-                print 'appear items ', appearitems
                 meanpoint = np.mean(appearitems, axis=0)
                 meanyaw = getYawDelta(meanpoint[0], meanpoint[1], myLoc["x"], myLoc["z"], myDir["yaw"])
-                self.value_estimate["actual"][0] = .75 + getNoise()
+                #self.value_estimate["actual"][0] = .75 + getNoise()
                 self.SC.pop_estimate[0]["command"]["yaw"] = meanyaw
                 self.PPC.pop_estimate[0]["command"]["pos"] = meanpoint
-                self.SC.estimate_turn["actual"] = .75 + getNoise()
-                self.PPC.estimate_move["actual"] = .75 + getNoise()
-                print 'Mean : ' , meanpoint, ' target yaw : ', self.PPC.targetYaw, 'my yaw : ' , self.PPC.yaw
+                #self.SC.estimate_turn["actual"] = .75 + getNoise()
+                #self.PPC.estimate_move["actual"] = .75 + getNoise()
+                print 'Mean : ' , meanpoint, ' target yaw : ', self.SC.pop_estimate[0]["command"]["yaw"], 'my yaw : ' , self.SC.yaw
                 #plotItems(myX, myZ, obX, obZ, obYaws, self._plotCount, 111)
-                return 1
+        # This is not urgent need, but just a motivation to explore
+        need = (self.ACC.getCurrentThirst() + self.ACC.getCurrentHunger() > 0)
+        if need and (np.max(self.values["actual"]) < .2 or self.MC.working) :
+            print 'There is a current need, activating estimates '
+            self.value_estimate["desired"][:] = .5 + getNoise() #SET VC ESTIMATE DESIRED
+
 '''
 The Sensory dudes - in alphabetical order.
 Just kidding : in the order of location, need and preference
@@ -150,8 +162,8 @@ class SuperiorColliculus(object) :
 
     def resetValues(self) :
         print 'Resetting values'
-        self.values[:]["Iext"] = .1 + getNoise()
-        self.value_estimate[:]["Iext"] = .1 + getNoise()
+        self.values_turn = noisyZeros(MAXIMUM_POSITIONS, valuetype)
+        self.estimate_turn = noisyZeros(1, valuetype)
 
 
 class PrimarySomatoSensoryCortex(object) :
@@ -263,12 +275,13 @@ The Frontal dudes - no kidding, in the order of location (where and how), need a
 '''
 
 class FrontalEyeFields(object) :
-    def __init__(self):
+    def __init__(self, SC):
         self.pop = np.zeros(MAXIMUM_POSITIONS, motion)
         self.values = np.zeros(MAXIMUM_POSITIONS, motion)
         self.value_estimate = np.zeros(1, motion)
         # Some global flags : let's see how feasible it is to have these
         self.turning = False
+        self.SC = SC
 
     def resetValues(self) :
         print 'Resetting values'
@@ -283,6 +296,7 @@ class MotorCortex(object) :
         # Some global flags : let's see how feasible it is to have these
         self.moving = False
         self.PPC = PPC
+        self.working = True
 
     def process(self, agent_host) :
         agent_host.sendChat('In Motor')
@@ -402,8 +416,6 @@ class ACCVAConnection(object) :
                 ACC.thirst_values[POPULATIONS[it["name"]]] = it["valence"]["water"]
         ACC.hunger_values[:] = normalize(ACC.hunger_values, 10)
         ACC.thirst_values[:] = normalize(ACC.thirst_values, 10)
-        print 'after acc', ACC.hunger_values, ACC.thirst_values
-
         ACC.insula_a.resetValues()
         #Insula_a actual updating ACC
         if ACC.getCurrentThirst() > THIRST_LIMIT :
@@ -416,13 +428,47 @@ class ACCVAConnection(object) :
                 VA.values["desired"][POPULATIONS[item]] = .5
         ACC.insula_a.values["desired"][:] =  ACC.insula_a.values["desired"][:] + getNoise(ACC.insula_a.values["desired"].size)
         VA.values["desired"][:] =  VA.values["desired"][:] + getNoise(VA.values["desired"].size)
-        # This is not urgent need, but just a motivation to explore
-        need = (ACC.getCurrentThirst() + ACC.getCurrentHunger() > 0)
-        print 'checking need : ', need, ' and VA actual values : ', VA.values["actual"]
-        if need and np.max(VA.values["actual"]) < .5 :
-            print 'There is a current need, activating estimates '
-            VA.value_estimate[0]["desired"] = .5 + getNoise()
 
+class FEFVAConnection(object) :
+
+    def __init__(self, source, target, weights = np.ones(MAXIMUM_STIMULI)) :
+        self.source = source #FEF
+        self.target = target #VA
+        self.weights= weights
+        self.delay = self.setDelay()
+
+    def setDelay(self) :
+        return 3
+
+    def propagate(self) :
+        '''
+        If something in visual (desired) is active, makes FEF active
+        either for non-zero "actual" in Visual (stimuli directed)
+        or non-zero "desired" in Visual (goal directed, exploration)
+        '''
+
+        FEF = self.source
+        VA = self.target
+        SC = FEF.SC
+        FEF.values["Iext"][:] = VA.values["actual"][:]
+        FEF.value_estimate["Iext"][:] = VA.value_estimate["desired"][:]
+        SC.values_turn["desired"][:] = FEF.values["Iext"][:]
+        SC.estimate_turn["desired"][:] = FEF.value_estimate["Iext"][:]
+        if np.max(FEF.value_estimate["Iext"]) < .2 and np.max(FEF.values["Iext"]) > .2:
+            if self.delay > 0 :
+                SC.estimate_turn["actual"][:] = .5 + getNoise(SC.estimate_turn["actual"].size)
+                self.delay -= 1
+            else :
+                SC.estimate_turn["desired"][:] = getNoise()
+                SC.estimate_turn["actual"][:] = getNoise()
+                VA.value_estimate["desired"][:] = getNoise()
+                VA.value_estimate["actual"][:] = getNoise()
+                FEF.value_estimate["Iext"][:] = getNoise()
+                FEF.working = False
+                self.delay = self.setDelay()
+        #if np.abs(PPC.estimate_move["actual"][0] - PPC.estimate_move["desired"][0]) > .1 : MC.working = True
+            # print 'turning off estimate'
+            # MC.value_estimate["Iext"][:] = getNoise()
 
 class MCVAConnection(object) :
 
@@ -430,21 +476,37 @@ class MCVAConnection(object) :
         self.source = source #MC
         self.target = target #VA
         self.weights= weights
+        self.delay = self.setDelay()
+
+    def setDelay(self) :
+        return 3
 
     def propagate(self) :
         '''
         If something in visual (desired) is active, makes motor active
         '''
+        MC = self.source
         VA = self.target
-        PPC = self.source.PPC
-        self.source.values["Iext"][:] = VA.values["actual"][:]
-        self.source.value_estimate["Iext"][:] = VA.value_estimate["desired"][:]
-        PPC.values_move["desired"][:] = self.source.values["Iext"][:]
-        PPC.estimate_move["desired"][:] = self.source.value_estimate["Iext"][:]
-        if PPC.estimate_move["actual"][0] > .25 :
-            PPC.estimate_move["desired"][:] = 0 + getNoise()
-            VA.value_estimate["desired"][:] = 0 + getNoise()
-
+        PPC = MC.PPC
+        MC.values["Iext"][:] = VA.values["actual"][:]
+        MC.value_estimate["Iext"][:] = VA.value_estimate["desired"][:]
+        PPC.values_move["desired"][:] = MC.values["Iext"][:]
+        PPC.estimate_move["desired"][:] = MC.value_estimate["Iext"][:]
+        if np.max(MC.value_estimate["Iext"]) < .2 and np.max(MC.values["Iext"]) > .2:
+            if self.delay > 0 :
+                PPC.estimate_move["actual"][:] = .5 + getNoise(PPC.estimate_move["actual"].size)
+                self.delay -= 1
+            else :
+                PPC.estimate_move["desired"][:] = getNoise()
+                PPC.estimate_move["actual"][:] = getNoise()
+                VA.value_estimate["desired"][:] = getNoise()
+                VA.value_estimate["actual"][:] = getNoise()
+                MC.value_estimate["Iext"][:] = getNoise()
+                MC.working = False
+                self.delay = self.setDelay()
+        #if np.abs(PPC.estimate_move["actual"][0] - PPC.estimate_move["desired"][0]) > .1 : MC.working = True
+            # print 'turning off estimate'
+            # MC.value_estimate["Iext"][:] = getNoise()
 
 def normalize(values, maximum) :
     a = [-1, 1, -1, 1]
