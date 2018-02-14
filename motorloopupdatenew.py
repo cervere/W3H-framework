@@ -4,7 +4,7 @@ from methods import *
 valence = [("food",  'float64'),
            ("water", 'float64')]
 
-targettype = [("yaw", 'float64'), ("pos", 'float64', 2)]
+targettype = [("yaw", 'float64'), ("pos", 'float64', 2), ("dist", 'float64')]
 valuetype = [("actual", "float64"), ("desired", "float64")]
 
 motion = [("command", targettype), ("Iext", 'float64'), ("note", '|S64') ]
@@ -34,12 +34,14 @@ class VisualCortex(object) :
         self.ACC = ACC
         self.SC = self.FEF.SC
         self.PPC = self.MC.PPC
+        self.insula_a = self.ACC.insula_a
         self.begin = False
         self.BGOverride = False
         self._plotCount = 0
         self.values = noisyZeros(MAXIMUM_STIMULI, valuetype)
         self.value_estimate = noisyZeros(1, valuetype)
-        self.gatheringInfo = 3
+        self.gatheringAppearInfo = 3
+        self.gatheringSeeInfo = 3
 
     def resetValues(self) :
         self.values = noisyZeros(MAXIMUM_STIMULI, valuetype)
@@ -75,16 +77,24 @@ class VisualCortex(object) :
             reachitems.append(re["name"])
         print 'reach items' , reachitems
 
+        minseedist = 0
+        maxseedist = 0
         for se in moment['observation']['see'] :
             VT = self.pop
             VT[i]["name"] = str(se["name"])
             VT[i]["valence"]["food"] = FOOD_VALUES[se["name"]]
             VT[i]["valence"]["water"] = WATER_VALUES[se["name"]]
             self.values["actual"][POPULATIONS[se["name"]]] = .75 + getNoise()
-            self.ACC.hunger_values[POPULATIONS[se["name"]]] = FOOD_VALUES[se["name"]]
-            self.ACC.thirst_values[POPULATIONS[se["name"]]] = WATER_VALUES[se["name"]]
+            self.SC.pop[POPULATIONS[se["name"]]]["command"]["yaw"] = se["yaw"] # Technically, not for direct use.
+            self.PPC.pop[POPULATIONS[se["name"]]]["command"]["pos"] =  np.array([se["x"], se["z"]])
+            dist = euclDist(se["x"], se["z"], self.PPC.x, self.PPC.z)
+            self.PPC.pop[POPULATIONS[se["name"]]]["command"]["dist"] = dist
+            if minseedist == 0 or dist < minseedist :
+                minseedist = dist
+            if maxseedist == 0 or dist > maxseedist:
+                maxseedist = dist
+            self.ACC.values[POPULATIONS[se["name"]]] = .25 + getNoise()
             seeitems.append(se["name"])
-        print 'see items' , seeitems
 
         for it in moment['observation']['appear'] :
             '''
@@ -94,21 +104,39 @@ class VisualCortex(object) :
             4) Should not be able to obtain appetetiveness details yet.
             '''
             self.values["actual"][POPULATIONS[it["name"]]] = .25 + getNoise()
-            self.SC.pop["command"]["yaw"] = it["yaw"] # Technically, not for direct use.
-            self.PPC.pop["command"]["pos"] =  np.array([it["x"], it["z"]])
+            self.SC.pop[POPULATIONS[it["name"]]]["command"]["yaw"] = it["yaw"] # Technically, not for direct use.
+            self.PPC.pop[POPULATIONS[it["name"]]]["command"]["pos"] =  np.array([it["x"], it["z"]])
             obX.append(it["x"])
             obZ.append(it["z"])
             obName.append(it["name"])
             obYaws.append(it["yaw"])
             appearitems.append([it["x"], it["z"]])
-        if len(appearitems) > 0 and not self.FEF.working :
+
+        if len(seeitems) > 0 and not self.FEF.working :
+            print 'see items' , seeitems
+            print minseedist, maxseedist
+            if self.gatheringSeeInfo > 0 :
+                self.MC.working = False
+                self.gatheringSeeInfo -= 1
+            else :
+                for s in seeitems :
+                    factor = 1 - ((self.PPC.pop[POPULATIONS[se["name"]]]["command"]["dist"] - minseedist)/maxseedist)
+                    food, water = FOOD_VALUES[se["name"]], WATER_VALUES[se["name"]]
+                    if (THIRST_FATAL_LIMIT - self.insula_a.thirst) <= (HUNGER_FATAL_LIMIT - self.insula_a.hunger) :
+                        self.insula_a.values["actual"][POPULATIONS[se["name"]]] += .25 * water/10
+                    else :
+                        self.insula_a.values["actual"][POPULATIONS[se["name"]]] += .25 * food/10
+
+                    self.ACC.values[POPULATIONS[se["name"]]] +=  .25 * factor
+
+        elif len(appearitems) > 0 and not self.FEF.working :
             '''
             Just to add some delay
             '''
-            if self.gatheringInfo > 0 :
+            if self.gatheringAppearInfo > 0 :
                 self.value_estimate["actual"][:] = .5 + getNoise(self.value_estimate["actual"].size)
                 self.MC.working = False
-                self.gatheringInfo -= 1
+                self.gatheringAppearInfo -= 1
             else :
                 print 'appear items ', appearitems
                 k = np.argmax(self.values["actual"])
@@ -119,27 +147,23 @@ class VisualCortex(object) :
                 self.FEF.working = np.abs(self.SC.yaw - meanyaw) > 1
                 self.SC.pop_estimate[0]["command"]["yaw"] = meanyaw - self.SC.yaw
                 self.PPC.pop_estimate[0]["command"]["pos"] = meanpoint
-                print 'Mean : ' , meanpoint, ' target yaw : ', self.SC.pop_estimate[0]["command"]["yaw"], 'my yaw : ' , self.SC.yaw
                 #plotItems(myX, myZ, obX, obZ, obYaws, self._plotCount, 111)
 
         # This is not urgent need, but just a motivation to explore
         need = (self.ACC.getCurrentThirst() + self.ACC.getCurrentHunger() > 0)
-        print need , self.values["actual"] ,  self.MC.working
+        print 'About need : ', need, self.values["actual"], self.MC.working, self.FEF.working
         if need and (np.max(self.values["actual"]) < .2 or self.MC.working or self.FEF.working) :
-            print 'There is a current need, activating estimates '
             self.value_estimate["desired"][:] = .5 + getNoise() #SET VC ESTIMATE DESIRED
             targetyaw = self.SC.pop_estimate[0]["command"]["yaw"]
             sourceyaw = self.SC.yaw
-            if np.abs(targetyaw - sourceyaw) > 1 :
+            if True : #np.abs(targetyaw - sourceyaw) > 1 :
                 #self.FEF.values["Iext"][:] = self.values["actual"][:]
-                print 'FEF act ', self.FEF.working, targetyaw - sourceyaw, targetyaw, self.value_estimate["desired"][:]
                 self.FEF.value_estimate["Iext"][:] = ((targetyaw - sourceyaw)/targetyaw) * self.value_estimate["desired"][:]
                 #self.SC.values_turn["desired"][:] = self.FEF.values["Iext"][:]
                 self.SC.estimate_turn["desired"][:] = self.FEF.value_estimate["Iext"][:]
 
 '''
-The Sensory dudes - in alphabetical order.
-Just kidding : in the order of location, need and preference
+The Sensory dudes - in the order of location, need and preference
 '''
 
 class SuperiorColliculus(object) :
@@ -200,25 +224,6 @@ class PrimarySomatoSensoryCortex(object) :
         self.pop_estimate = np.zeros(1, location)
         self.estimate_move = noisyZeros(1, valuetype)
 
-
-    def checks(self) :
-        if self.targetOn and self.turning and self.targetYaw is not None :
-            print 'target yaw ', self.targetYaw, 'current ', self.yaw
-            if np.abs(self.targetYaw - self.yaw) < 1.5 :
-                self.waitSignal = False
-                #self.turning = False
-                self.targetYaw = None
-        if self.targetOn and self.moving and self.targetPos.all():
-            print 'target pos ', self.targetPos, 'current ', self.pos
-            if np.abs(self.targetPos[0] - self.pos[0]) < 0.5 or np.abs(self.targetPos[1] - self.pos[1]) < 0.5 or np.linalg.norm(self.targetPos - self.pos) < .75 :
-                self.waitSignal = False
-                #self.moving = False
-                self.targetPos = np.array([None, None])
-        if self.targetOn and self.waiting and self.waitCount == 0 :
-            self.waitSignal = False
-            #self.waiting = False
-            print 'nothing'
-        self.update()
 
     def check(self) :
         print 'PPC diff des and act : ', np.concatenate([self.values_move["desired"], self.estimate_move["desired"]]) - np.concatenate([self.values_move["actual"], self.estimate_move["actual"]])
@@ -325,6 +330,8 @@ class AnteriorCingulateCortex(object) :
     '''
     def __init__(self, insula_a):
         self.insula_a = insula_a
+        self.pop = noisyZeros(MAXIMUM_POSITIONS, valence)
+        self.values = noisyZeros(MAXIMUM_POSITIONS)
         self.hunger_values = noisyZeros(MAXIMUM_STIMULI)
         self.thirst_values = noisyZeros(MAXIMUM_STIMULI)
 
@@ -379,21 +386,15 @@ class BasalGanglia(object) :
         self.begin = False
         self._plotCount = 0
         self.msg = ""
-    def process(self, moment, VC, PPC, MC, ACC) :
-        PPC.checks()
-#                if grantedState == "DECIDE" : self.decide(VC, PPC, MC, ACC)
 
     def decide(self, VC, PPC, MC, ACC) :
         MMA = MC.pop
         propagate(VC.pop, self.pop, MMA)
-        print 'Stats from ACC : Hunger ', ACC.getCurrentHunger(), ', Thirst ', ACC.getCurrentThirst()
         k = np.argmax(MMA["Iext"])
-        print MMA[k]["command"]
         PPC.targetYaw = MMA[k]["command"]["yaw"]
         actionMap["ORIENT"]["act"] = 'turn '+ str(float(PPC.targetYaw)/180.) + '; PPCWait 1; turn 0'
         PPC.targetPos = MMA[k]["command"]["pos"]
         PPC.targetYaw = getYawDelta(PPC.targetPos[0], PPC.targetPos[1], PPC.x, PPC.z, PPC.yaw)
-        print 'PPC targetYaw ', PPC.targetYaw, 'currDelta ', getYawDelta(PPC.targetPos[0], PPC.targetPos[1], PPC.x, PPC.z, PPC.yaw), PPC.x, PPC.z
         #actionMap["REACH"]["target"] = MMA[k]["command"]["pos"]
 
 class ACCVAConnection(object) :
@@ -404,7 +405,6 @@ class ACCVAConnection(object) :
         self.weights= weights
 
     def propagate(self) :
-        print 'Propogating'
         '''
         VA updating ACC
         Insula_a actual updating ACC
@@ -420,7 +420,6 @@ class ACCVAConnection(object) :
         VAPop = self.target.pop
         for it in VAPop :
             if it["name"] != '' :
-                print 'setting acc values'
                 ACC.hunger_values[POPULATIONS[it["name"]]] = it["valence"]["food"]
                 ACC.thirst_values[POPULATIONS[it["name"]]] = it["valence"]["water"]
         ACC.hunger_values[:] = normalize(ACC.hunger_values, 10)
@@ -437,6 +436,7 @@ class ACCVAConnection(object) :
                 VA.values["desired"][POPULATIONS[item]] = .5
         ACC.insula_a.values["desired"][:] =  ACC.insula_a.values["desired"][:] + getNoise(ACC.insula_a.values["desired"].size)
         VA.values["desired"][:] =  VA.values["desired"][:] + getNoise(VA.values["desired"].size)
+        print 'Check VA desired', VA.values["desired"]
 
 class FEFVAConnection(object) :
 
@@ -459,6 +459,21 @@ class FEFVAConnection(object) :
         FEF = self.source
         VA = self.target
         SC = FEF.SC
+
+        FEF.values["Iext"][:] = VA.values["actual"][:]
+        if(np.max(VA.ACC.values) > .25) :
+            accImpact = VA.ACC.values / (np.max(VA.ACC.values) * 1.)
+            FEF.values["Iext"][:] = FEF.values["Iext"] * accImpact
+
+        SC.values_turn["desired"][:] = FEF.values["Iext"][:]
+
+        if SC.pop_estimate[0]["command"]["yaw"] - SC.yaw > 1 :
+            FEF.value_estimate["Iext"][:] = VA.value_estimate["desired"][:] + getNoise(VA.value_estimate["desired"].size)
+        else :
+            FEF.value_estimate["Iext"][:] = getNoise(FEF.value_estimate["Iext"].size)
+
+        SC.estimate_turn["desired"][:] = FEF.value_estimate["Iext"][:]
+
         if np.max(FEF.value_estimate["Iext"]) < .2 and np.max(FEF.values["Iext"]) > .2:
             if self.delay > 0 :
                 SC.estimate_turn["actual"][:] = .5 + getNoise(SC.estimate_turn["actual"].size)
@@ -466,14 +481,12 @@ class FEFVAConnection(object) :
             else :
                 SC.estimate_turn["desired"][:] = getNoise()
                 SC.estimate_turn["actual"][:] = getNoise()
-                VA.value_estimate["desired"][:] = getNoise()
-                VA.value_estimate["actual"][:] = getNoise()
+                #VA.value_estimate["desired"][:] = getNoise()
+                #VA.value_estimate["actual"][:] = getNoise()
                 FEF.value_estimate["Iext"][:] = getNoise()
                 FEF.working = False
                 self.delay = self.setDelay()
-        #if np.abs(PPC.estimate_move["actual"][0] - PPC.estimate_move["desired"][0]) > .1 : MC.working = True
-            # print 'turning off estimate'
-            # MC.value_estimate["Iext"][:] = getNoise()
+
 
 class MCVAConnection(object) :
 
@@ -494,6 +507,10 @@ class MCVAConnection(object) :
         VA = self.target
         PPC = MC.PPC
         MC.values["Iext"][:] = VA.values["actual"][:]
+        if(np.max(VA.ACC.values) > .25) :
+            accImpact = VA.ACC.values / (np.max(VA.ACC.values) * 1.)
+            MC.values["Iext"][:] = MC.values["Iext"] * accImpact
+
         MC.value_estimate["Iext"][:] = VA.value_estimate["desired"][:]
         PPC.values_move["desired"][:] = MC.values["Iext"][:]
         PPC.estimate_move["desired"][:] = MC.value_estimate["Iext"][:]
@@ -509,9 +526,7 @@ class MCVAConnection(object) :
                 MC.value_estimate["Iext"][:] = getNoise()
                 MC.working = False
                 self.delay = self.setDelay()
-        #if np.abs(PPC.estimate_move["actual"][0] - PPC.estimate_move["desired"][0]) > .1 : MC.working = True
-            # print 'turning off estimate'
-            # MC.value_estimate["Iext"][:] = getNoise()
+
 
 def normalize(values, maximum) :
     a = [-1, 1, -1, 1]
@@ -548,61 +563,3 @@ def OneToOne(source, target, weights) :
 def propagate(VT, BG, MMA) :
     OneToOne(VT["Iext"], BG, weights)
     OneToOne(BG, MMA["Iext"], weights)
-
-'''
-Let's try making a 2D cortex, assign some neurons to certain actions.
-Activate one of them, say one representing action A1 (as in, switch it ON),
-Assuming BG knows that A1 needs sub actions A11, A12, A13 to occur in sequence,
-BG provides gating input to A11, once it is finished then to A12 and so on upto A13.
-Once A13 is done, BG provides gate OFF to A1.
-'''
-
-actionMap = {
-"A1" : {"frere" : "A2", "fils" : "A11"},
-"A11" : {"frere" : "A12", "fils" : ""},
-"A12" : {"frere" : "A13", "fils" : "A121"},
-"A121" : {"frere" : "A122", "fils" : ""},
-"A13" : {"frere" : "", "fils" : ""},
-}
-
-'''
-For ex :
-1) Eat
-    11) Search (Explore)
-        111) Walk until something in appear
-        112) Stop - return (x,y)
-    12) Locate
-        121) Get Location
-        122) Orient - return success of turning towards (x,y)
-    13) Reach
-        131) Plan to Reach
-        132) Move - return success of being at (x,y)
-    14) Consume
-        141) Some time to eat and in the end notify ACC that you ate.
-    15) Wait to see if satisfied.
-        151) return success that hunger is satisfied
-'''
-actionMap = {
-"IDLE" : {"next" : "EAT", "frere" : "", "fils" : "EAT", "act" : "", "ens" : [0, 8], "OFF" : "CONSUME,EAT", "color" :  "r", "msg" : "I'm jobless!!"},
-"EAT" : {"next" : "EXPLORE", "frere" : "HAPPY", "fils" : "EXPLORE", "act" : "wait 1", "ens" : [0, 10], "OFF" : "IDLE", "color" :  "r", "msg" :  "I feel like eating something"},
-"EXPLORE" : {"next" : "LOCATE", "frere" : "LOCATE", "fils" : "", "act" : "move .75", "ens" : [3, 6], "OFF" : "", "color" :  "g", "msg" : "Let me explore a bit!"},
-"LOCATE" : {"next" : "DECIDE", "frere" : "REACH", "fils" : "DECIDE", "act" : "move 0; wait 5", "ens" : [5, 9], "OFF" : "EXPLORE", "color" :  "g", "msg" : "Ooh..I find something around!"},
-"DECIDE" : {"next" : "ORIENT", "frere" : "ORIENT", "fils" : "", "act" : "wait 5", "ens" : [8, 8], "OFF" : "", "color" :  "b", "msg" : "I'm trying to decide!"},
-"ORIENT" : {"next" : "REACH", "frere" : "", "fils" : "", "act" : "turn ", "ens" : [8, 10], "OFF" : "DECIDE", "color" :  "b", "msg" : "I chose something, I will orient towards it."},
-"REACH" : {"next" : "CONSUME", "frere" : "CONSUME", "fils" : "", "act" : "move .5; PPCWait 1; move 0", "ens" : [5, 13], "OFF" : "ORIENT,LOCATE", "color" :  "g", "msg" : "I will appraoch this object"},
-"CONSUME" : {"next" : "IDLE", "frere" : "", "fils" : "", "act" : "wait 10; tpx 0.; setYaw 0", "ens" : [6, 16], "OFF" : "REACH,EAT", "color" :  "g", "msg" : "I got it! Nom.. nom.. nom.."}
-}
-
-
-def traverse(actionMap, key, prefix) :
-    if key != '' :
-        print prefix + key
-        if key in actionMap :
-            print actionMap[key]["ens"]
-            traverse(actionMap, actionMap[key]["fils"], prefix+"-")
-            traverse(actionMap, actionMap[key]["frere"], prefix)
-
-#traverse(actionMap, "EAT", "-")
-
-#propagate()
-#print VT, MMA

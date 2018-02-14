@@ -131,10 +131,12 @@ for iRepeat in range(num_reps):
     VA_DESIRED = []
     VA_ESTIMATE = {"desired" : [], "actual" : []}
     VA_DESIRED_TIMES = []
-    MOTOR_VALUES = []
-    MOTOR_ESTIMATE_VALUES = []
     FEF_VALUES = []
     FEF_ESTIMATE_VALUES = []
+    MOTOR_VALUES = []
+    MOTOR_ESTIMATE_VALUES = []
+    MOTOR_VALUES = []
+    ACC_VALUES = []
     HUNGER_VALUES = []
     THIRST_VALUES = []
     ACC_HUNGER_VALUES = []
@@ -229,10 +231,11 @@ for iRepeat in range(num_reps):
             PPC_ACTUAL.append(np.array(PPC.values_move["actual"]))
             MOVE_ESTIMATE_VALUES["desired"].append(np.array(PPC.estimate_move["desired"]))
             MOVE_ESTIMATE_VALUES["actual"].append(np.array(PPC.estimate_move["actual"]))
-            MOTOR_VALUES.append(np.array(MC.values["Iext"]))
-            MOTOR_ESTIMATE_VALUES.append(np.array(MC.value_estimate["Iext"]))
             FEF_VALUES.append(np.array(FEF.values["Iext"]))
             FEF_ESTIMATE_VALUES.append(np.array(FEF.value_estimate["Iext"]))
+            MOTOR_VALUES.append(np.array(MC.values["Iext"]))
+            MOTOR_ESTIMATE_VALUES.append(np.array(MC.value_estimate["Iext"]))
+            ACC_VALUES.append(np.array(ACC.values))
             HUNGER_VALUES.append(ACC.getCurrentHunger())
             THIRST_VALUES.append(ACC.getCurrentThirst())
             ACC_HUNGER_VALUES.append(np.array(ACC.hunger_values))
@@ -315,8 +318,6 @@ for iRepeat in range(num_reps):
 
         PPC.update()
         if PPC.moving : INS_A.moveEffect()
-        if VC.BGOverride : VC.BGOverride = False
-        eatactens = actionMap["LOCATE"]["ens"]
         time.sleep(0.1)
 
 
@@ -340,13 +341,14 @@ for iRepeat in range(num_reps):
     ACC_HUNGER_PLOT = np.asarray(ACC_HUNGER_VALUES)
     ACC_THIRST_PLOT = np.asarray(ACC_THIRST_VALUES)
     MOTOR_VALUES_PLOT = np.asarray(MOTOR_VALUES)
+    ACC_PLOT = np.asarray(ACC_VALUES)
     FEF_VALUES_PLOT = np.asarray(FEF_VALUES)
 
     genericPlot(VA_DESIRED_TIMES, VC_DESIRED_PLOT, VC_ACTUAL_PLOT, 'Visual Areas', VA_ESTIMATE)
     genericPlot(VA_DESIRED_TIMES, SC_DESIRED_PLOT, SC_ACTUAL_PLOT, 'Superior Colliculus(SC)', TURN_ESTIMATE_VALUES)
     genericPlot(VA_DESIRED_TIMES, PPC_DESIRED_PLOT, PPC_ACTUAL_PLOT, 'PrimarySomatoSensoryCortex (PPC)', MOVE_ESTIMATE_VALUES)
     genericPlot(VA_DESIRED_TIMES, INS_A_DESIRED_PLOT, INS_A_ACTUAL_PLOT, 'Insular Cortex(-ACC)')
-    genericPlot(VA_DESIRED_TIMES, ACC_HUNGER_PLOT, ACC_THIRST_PLOT, 'ACC')
+    #genericPlot(VA_DESIRED_TIMES, ACC_HUNGER_PLOT, ACC_THIRST_PLOT, 'ACC')
 
     plotPath(traces_x, traces_z)
 
@@ -355,14 +357,17 @@ for iRepeat in range(num_reps):
     ax = fig.add_subplot(111)
     ax.set_xlabel('Time (ms)')
     ax.set_ylabel('Units')
-    #ax.set_ylim(ymin=0, ymax=1.2)
+    ax.set_ylim(ymin=0, ymax=THIRST_FATAL_LIMIT+5)
     ax.plot(VA_DESIRED_TIMES, HUNGER_VALUES, label='hunger')
     ax.plot(VA_DESIRED_TIMES, THIRST_VALUES, label='thirst')
+    ax.axhline(THIRST_FATAL_LIMIT)
+    ax.axhline(HUNGER_FATAL_LIMIT)
     ax.legend(loc='center left',fontsize="x-small", bbox_to_anchor=(1, 0.5))
 
     FRONTALVALUES = []
     FRONTALVALUES.append(FEF_VALUES_PLOT)
     FRONTALVALUES.append(MOTOR_VALUES_PLOT)
+    FRONTALVALUES.append(ACC_PLOT)
     ESTIMATE_VALUES=[]
     ESTIMATE_VALUES.append(FEF_ESTIMATE_VALUES)
     ESTIMATE_VALUES.append(MOTOR_ESTIMATE_VALUES)

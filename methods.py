@@ -289,6 +289,7 @@ def genericPlot(TIMES, DESIREDVALUES, ACTUALVALUES, TITLE, ESTIMATEVALUES={}) :
     if len(ESTIMATEVALUES) > 0  and len(ESTIMATEVALUES["actual"]) > 0 :
         ax2.plot(TIMES, ESTIMATEVALUES["actual"], '--', linewidth=2)
 
+    #plt.tight_layout()
     # for i, stat in zip(STATE_CHANGE_TIMES, STATE_CHANGE_STATE) :
     #     if True :
     #         ax.axvline(i, color='r')
@@ -318,9 +319,11 @@ def genericFrontalPlot(TIMES, FRONTALREGIONS, FRONTALREGIONSVALUES, TITLE, ESTIM
         box = ax.get_position()
         ax.set_position([box.x0, box.y0, box.width , box.height])
         ax.legend(fontsize="x-small", bbox_to_anchor=[0.5, 0], loc='upper center', ncol=4, borderaxespad=0.25)
-        if len(ESTIMATEVALUES[i]) > 0 :
+        if i < len(ESTIMATEVALUES) and len(ESTIMATEVALUES[i]) > 0 :
             ax.plot(TIMES, ESTIMATEVALUES[i], '--', linewidth=2)
     ax.set_xlabel('Time (ms)')
+
+    #plt.tight_layout()
 
 #==============================================================================
 #struct = np.random.normal(.1, .05, (20,20))
