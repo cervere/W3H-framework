@@ -27,12 +27,13 @@ weights = np.asarray([.5] * 4)
 PC = (0,0) # gives current location - (x,y)
 
 class VisualCortex(object) :
-    def __init__(self, MC, PPC, ACC, SC):
+    def __init__(self, FEF, MC, ACC):
         self.pop = np.zeros(4, vttype)
+        self.FEF = FEF
         self.MC = MC
-        self.PPC = PPC
         self.ACC = ACC
-        self.SC = SC
+        self.SC = self.FEF.SC
+        self.PPC = self.MC.PPC
         self.begin = False
         self.BGOverride = False
         self._plotCount = 0
@@ -65,11 +66,15 @@ class VisualCortex(object) :
         MMA = self.PPC.pop
         self.ACC.hunger_values[:] = .1 + getNoise()
         self.ACC.thirst_values[:] = .1 + getNoise()
-        seeitems = []
+        reachitems, seeitems, appearitems = [], [], []
+
         for re in moment['observation']['reach'] :
             self.values["actual"][POPULATIONS[re["name"]]] = 1 + getNoise()
             self.ACC.hunger_values[POPULATIONS[re["name"]]] = FOOD_VALUES[re["name"]]
             self.ACC.thirst_values[POPULATIONS[re["name"]]] = WATER_VALUES[re["name"]]
+            reachitems.append(re["name"])
+        print 'reach items' , reachitems
+
         for se in moment['observation']['see'] :
             VT = self.pop
             VT[i]["name"] = str(se["name"])
@@ -80,7 +85,7 @@ class VisualCortex(object) :
             self.ACC.thirst_values[POPULATIONS[se["name"]]] = WATER_VALUES[se["name"]]
             seeitems.append(se["name"])
         print 'see items' , seeitems
-        appearitems = []
+
         for it in moment['observation']['appear'] :
             '''
             1) Activate actual of visual - only for mean postion, but a little for actual item positions
@@ -91,16 +96,12 @@ class VisualCortex(object) :
             self.values["actual"][POPULATIONS[it["name"]]] = .25 + getNoise()
             self.SC.pop["command"]["yaw"] = it["yaw"] # Technically, not for direct use.
             self.PPC.pop["command"]["pos"] =  np.array([it["x"], it["z"]])
-            #self.ACC.hunger_values[POPULATIONS[it["name"]]] = FOOD_VALUES[it["name"]]
-            #self.ACC.thirst_values[POPULATIONS[it["name"]]] = WATER_VALUES[it["name"]]
             obX.append(it["x"])
             obZ.append(it["z"])
             obName.append(it["name"])
             obYaws.append(it["yaw"])
-            #MMA["command"][i]["yaw"] = it["yaw"]
-            #MMA["command"][i]["pos"] = np.array([it["x"], it["z"]])
             appearitems.append([it["x"], it["z"]])
-        if len(appearitems) > 0 :
+        if len(appearitems) > 0 and not self.FEF.working :
             '''
             Just to add some delay
             '''
@@ -115,18 +116,26 @@ class VisualCortex(object) :
                 if np.argmax(self.ACC.insula_a.values[:]["desired"]) < .25 : self.ACC.insula_a.values[k]["desired"] = .75
                 meanpoint = np.mean(appearitems, axis=0)
                 meanyaw = getYawDelta(meanpoint[0], meanpoint[1], myLoc["x"], myLoc["z"], myDir["yaw"])
-                #self.value_estimate["actual"][0] = .75 + getNoise()
-                self.SC.pop_estimate[0]["command"]["yaw"] = meanyaw
+                self.FEF.working = np.abs(self.SC.yaw - meanyaw) > 1
+                self.SC.pop_estimate[0]["command"]["yaw"] = meanyaw - self.SC.yaw
                 self.PPC.pop_estimate[0]["command"]["pos"] = meanpoint
-                #self.SC.estimate_turn["actual"] = .75 + getNoise()
-                #self.PPC.estimate_move["actual"] = .75 + getNoise()
                 print 'Mean : ' , meanpoint, ' target yaw : ', self.SC.pop_estimate[0]["command"]["yaw"], 'my yaw : ' , self.SC.yaw
                 #plotItems(myX, myZ, obX, obZ, obYaws, self._plotCount, 111)
+
         # This is not urgent need, but just a motivation to explore
         need = (self.ACC.getCurrentThirst() + self.ACC.getCurrentHunger() > 0)
-        if need and (np.max(self.values["actual"]) < .2 or self.MC.working) :
+        print need , self.values["actual"] ,  self.MC.working
+        if need and (np.max(self.values["actual"]) < .2 or self.MC.working or self.FEF.working) :
             print 'There is a current need, activating estimates '
             self.value_estimate["desired"][:] = .5 + getNoise() #SET VC ESTIMATE DESIRED
+            targetyaw = self.SC.pop_estimate[0]["command"]["yaw"]
+            sourceyaw = self.SC.yaw
+            if np.abs(targetyaw - sourceyaw) > 1 :
+                #self.FEF.values["Iext"][:] = self.values["actual"][:]
+                print 'FEF act ', self.FEF.working, targetyaw - sourceyaw, targetyaw, self.value_estimate["desired"][:]
+                self.FEF.value_estimate["Iext"][:] = ((targetyaw - sourceyaw)/targetyaw) * self.value_estimate["desired"][:]
+                #self.SC.values_turn["desired"][:] = self.FEF.values["Iext"][:]
+                self.SC.estimate_turn["desired"][:] = self.FEF.value_estimate["Iext"][:]
 
 '''
 The Sensory dudes - in alphabetical order.
@@ -280,7 +289,7 @@ class FrontalEyeFields(object) :
         self.values = np.zeros(MAXIMUM_POSITIONS, motion)
         self.value_estimate = np.zeros(1, motion)
         # Some global flags : let's see how feasible it is to have these
-        self.turning = False
+        self.working = False
         self.SC = SC
 
     def resetValues(self) :
@@ -450,10 +459,6 @@ class FEFVAConnection(object) :
         FEF = self.source
         VA = self.target
         SC = FEF.SC
-        FEF.values["Iext"][:] = VA.values["actual"][:]
-        FEF.value_estimate["Iext"][:] = VA.value_estimate["desired"][:]
-        SC.values_turn["desired"][:] = FEF.values["Iext"][:]
-        SC.estimate_turn["desired"][:] = FEF.value_estimate["Iext"][:]
         if np.max(FEF.value_estimate["Iext"]) < .2 and np.max(FEF.values["Iext"]) > .2:
             if self.delay > 0 :
                 SC.estimate_turn["actual"][:] = .5 + getNoise(SC.estimate_turn["actual"].size)

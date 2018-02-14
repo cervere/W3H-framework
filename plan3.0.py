@@ -118,7 +118,7 @@ for iRepeat in range(num_reps):
     FEF = FrontalEyeFields(SC)
     MC = MotorCortex(PPC)
     DLS = AbstractBasalGanglia("DLS")
-    VC = VisualCortex(MC, PPC, ACC, SC)
+    VC = VisualCortex(FEF, MC, ACC)
     eatact = []
     INS_A_DESIRED = []
     INS_A_ACTUAL = []
@@ -213,10 +213,6 @@ for iRepeat in range(num_reps):
                 SendChat(BG.msg)
                 BG.msg = ""
             #MC.process(agent_host)
-            if False and (not PPC.targetOn or VC.BGOverride) :
-                if MC.nextAction != "" :
-                    if currentSequence != "" : currentSequence += '; ' + MC.nextAction
-                    else : currentSequence = MC.nextAction
             VA_DESIRED_TIMES.append(moment['globalTime'])
             VA_DESIRED.append(np.array(VC.values["desired"]))
             VA_ESTIMATE["desired"].append(np.array(VC.value_estimate["desired"]))
@@ -269,43 +265,23 @@ for iRepeat in range(num_reps):
 
             Get the turn speed from each of these conditions
             '''
-            motor_pop = np.concatenate([FEF.values["Iext"], FEF.value_estimate["Iext"]])
-            winning_motor = np.argmax(motor_pop)
-            if (FEF.values["Iext"] > .25).sum() == 1  or FEF.value_estimate["Iext"] > 0.25 : #not PPC.moving :
-                if motor_pop[winning_motor] > 0.25 :
-                    if winning_motor > FEF.values.size - 1 :
-                        turnnote = FEF.value_estimate[winning_motor - FEF.values.size]["note"]
-                    else :
-                        turnnote = FEF.values[winning_motor]["note"]
-                    if turnnote != "" and turnnote.split(" ")[1].split(";")[0] > 0 :
-                        print 'turnnote ', turnnote
-                        turnSpeed = 0.2
-                    else :
-                        turnSpeed = -0.2
-                    currentSequence = "turn " + str(turnSpeed) + ";"
-                    turningOn = True
-                elif turningOn :
-                    currentSequence = "turn 0;" + turnnote
-                    turningOn = False
-                    turnnote = ''
-            print 'com : ', turnnote
-            motor_pop_move = np.concatenate([MC.values["Iext"], MC.value_estimate["Iext"]])
-            print 'pop move' , motor_pop_move
-            winning_motor = np.argmax(motor_pop_move)
-            if True : #not turningOn :
-                if motor_pop_move[winning_motor] > 0.45 :
-                    if winning_motor > MC.values.size - 1 :
-                        movenote = MC.value_estimate[winning_motor - MC.values.size]["note"]
-                    else :
-                        movenote = MC.values[winning_motor]["note"]
-                    currentSequence += "move .6; "
-                    PPC.moving = True
-                else :
-                    currentSequence += "move 0;" + movenote
-                    PPC.moving = False
-                    movenote = ''
-            #currentSequence = prevSeq + currentSequence
+            if (FEF.values["Iext"] > .25).sum() == 1  :
+                targetyaw = SC.pop[np.argmax(FEF.values["Iext"])]["command"]["yaw"]
+            elif FEF.value_estimate["Iext"] > 0.25 : #not PPC.moving :
+                targetyaw = SC.pop_estimate[0]["command"]["yaw"]
+            else :
+                targetyaw = SC.yaw
+            if targetyaw - SC.yaw == 0 : turnSpeed = 0
+            elif targetyaw - SC.yaw > 0 : turnSpeed = .2
+            else : turnSpeed = -.2
+            currentSequence = "turn " + str(turnSpeed) + ";"
+            print 'after turn check', currentSequence
 
+            if turnSpeed == 0 and ((MC.values["Iext"] > .25).sum() == 1 or MC.value_estimate["Iext"] > 0.25)  :
+                moveSpeed = .6
+            else :
+                moveSpeed = 0
+            currentSequence += "move " + str(moveSpeed) + ";"
 
         '''
         The internal reward processing can be handled later.
@@ -320,7 +296,7 @@ for iRepeat in range(num_reps):
         #if not PPC.waitSignal and PPC.waitCount == 0:
             #PPC.waiting = False
             # Time to execute the next command, if we have one:
-        if PPC.waitCount == 0 and currentSequence != "":
+        while (PPC.waitCount == 0 and currentSequence != ""):
             print 'executing ', currentSequence
             commands = currentSequence.split(";", 1)
             command = commands[0].strip()
