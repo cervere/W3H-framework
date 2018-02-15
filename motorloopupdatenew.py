@@ -476,7 +476,12 @@ class FEFVAConnection(object) :
 
         if np.max(FEF.value_estimate["Iext"]) < .2 and np.max(FEF.values["Iext"]) > .2:
             if self.delay > 0 :
-                SC.estimate_turn["actual"][:] = .5 + getNoise(SC.estimate_turn["actual"].size)
+                if np.max(FEF.values["Iext"]) < .5 :
+                    SC.estimate_turn["actual"][:] = .5 + getNoise(SC.estimate_turn["actual"].size)
+                if (FEF.values["Iext"] > .5).sum() == 1 :
+                    print 'found one FEF'
+                else :
+                    print 'multiple FEF options'
                 self.delay -= 1
             else :
                 SC.estimate_turn["desired"][:] = getNoise()

@@ -269,11 +269,16 @@ for iRepeat in range(num_reps):
             Get the turn speed from each of these conditions
             '''
             if (FEF.values["Iext"] > .25).sum() == 1  :
+                print '0'
                 targetyaw = SC.pop[np.argmax(FEF.values["Iext"])]["command"]["yaw"]
             elif FEF.value_estimate["Iext"] > 0.25 : #not PPC.moving :
+                print '1'
                 targetyaw = SC.pop_estimate[0]["command"]["yaw"]
             else :
+                print '2'
                 targetyaw = SC.yaw
+
+            print 'tar' , targetyaw, 'src', SC.yaw
             if targetyaw - SC.yaw == 0 : turnSpeed = 0
             elif targetyaw - SC.yaw > 0 : turnSpeed = .2
             else : turnSpeed = -.2
