@@ -1,6 +1,7 @@
 AGENT_NAME = "OSS 117"
 
 MAXIMUM_STIMULI = 4
+MAXIMUM_STIMULI_WITH_IMAGINARY = MAXIMUM_STIMULI + 1
 MAXIMUM_POSITIONS = MAXIMUM_STIMULI
 
 '''
@@ -14,11 +15,11 @@ Y_BASIC_ITEM = 227
     VITALS
 '''
 THIRST_DEFAULT = 2
-THIRST_LIMIT = 3
+THIRST_LIMIT = 4
 THIRST_FATAL_LIMIT = 15
 THIRST_RATE_INC = {"move" : 1, "jump" : 3}
 HUNGER_DEFAULT = 1
-HUNGER_LIMIT = 2
+HUNGER_LIMIT = 3
 HUNGER_FATAL_LIMIT = 15
 HUNGER_RATE_INC = {"move" : 1, "jump" : 3}
 HUNGER_RATE_DEC = {"consume" : 3}
@@ -28,7 +29,7 @@ FOOD_VALUES = {"apple" : 9, "cake" : 7, "water_bucket" : 3, "mushroom_stew" : 4}
 WATER_VALUES = {"apple" : 2, "cake" : 1, "water_bucket" : 9, "mushroom_stew" : 7}
 
 
-POPULATIONS = {"apple" : 0, "cake" : 1, "water_bucket" : 2, "mushroom_stew" : 3}
+POPULATIONS = {"apple" : 0, "cake" : 1, "water_bucket" : 2, "mushroom_stew" : 3, "imaginary" : 4}
 HUNGER_ITEMS = ["apple", "cake"]
 THIRST_ITEMS = ["water_bucket", "mushroom_stew"]
 

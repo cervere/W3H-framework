@@ -9,7 +9,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 debug = False
 
-REACH_SCOPE = 2
+REACH_SCOPE = 3
 SEE_SCOPE = 8
 APPEAR_SCOPE = 15
 AGENT_FOV = np.pi * (2./3)
@@ -115,6 +115,11 @@ def prepareMoment(moment, ob):
     if "far_entities" in ob: #Make sure these keys like "far_entities" are picked from a common place even in the XML
         setContext(moment, ob.get(u'reach', []), ob.get(u'see', []))
         setCues(moment, x, z, ob.get(u'far_entities', []))
+
+def getTurnSpeed(yaw) :
+    if yaw > 0 : return 1
+    elif yaw < 0 : return -1
+    else : return 0
 
 def getBlocks(info) :
     ''' Given the type of block and the set of coordinates,
@@ -274,21 +279,24 @@ def genericPlot(TIMES, DESIREDVALUES, ACTUALVALUES, TITLE, ESTIMATEVALUES={}) :
     ax1.set_title('Desired')
     ax1.set_ylim(ymin=0, ymax=1.5)
     for pop in POPULATIONS :
-        ax1.plot(TIMES, DESIREDVALUES[:, POPULATIONS[pop]], label=pop)
+        if pop != "imaginary" :
+            ax1.plot(TIMES, DESIREDVALUES[:, POPULATIONS[pop]], label=pop)
+    if len(ESTIMATEVALUES) > 0  and len(ESTIMATEVALUES["desired"]) > 0 :
+        ax1.plot(TIMES, ESTIMATEVALUES["desired"], '--', linewidth=2, label='default')
     box = ax1.get_position()
     ax1.set_position([box.x0, box.y0, box.width , box.height])
     ax1.legend(fontsize="x-small", bbox_to_anchor=[0.5, 0], loc='upper center', ncol=4, borderaxespad=0.25)
-    if len(ESTIMATEVALUES) > 0  and len(ESTIMATEVALUES["desired"]) > 0 :
-        ax1.plot(TIMES, ESTIMATEVALUES["desired"], '--', linewidth=2)
     ax2.set_xlabel('Time (ms)')
     ax2.set_ylabel('Activity (normalized)')
     ax2.set_title('Actual')
     ax2.set_ylim(ymin=0, ymax=1.5)
     for pop in POPULATIONS :
-        ax2.plot(TIMES, ACTUALVALUES[:, POPULATIONS[pop]], label=pop)
+        if pop != "imaginary" :
+            ax2.plot(TIMES, ACTUALVALUES[:, POPULATIONS[pop]], label=pop)
     if len(ESTIMATEVALUES) > 0  and len(ESTIMATEVALUES["actual"]) > 0 :
         ax2.plot(TIMES, ESTIMATEVALUES["actual"], '--', linewidth=2)
 
+    fig.savefig('plots/' + TITLE + '.jpg')
     #plt.tight_layout()
     # for i, stat in zip(STATE_CHANGE_TIMES, STATE_CHANGE_STATE) :
     #     if True :
@@ -308,22 +316,28 @@ def genericPlot(TIMES, DESIREDVALUES, ACTUALVALUES, TITLE, ESTIMATEVALUES={}) :
 
 def genericFrontalPlot(TIMES, FRONTALREGIONS, FRONTALREGIONSVALUES, TITLE, ESTIMATEVALUES=[]) :
     num = len(FRONTALREGIONSVALUES)
+    print num
     fig, axs = plt.subplots(nrows=num, sharex=True)
     fig.suptitle(TITLE, fontsize=20)
     for i, ax in zip(range(len(axs)), axs) :
-        ax.set_ylabel('Activity (normalized)')
-        ax.set_title(FRONTALREGIONS[i])
+        ylabel = FRONTALREGIONS[i]
+        if i == 0 : ylabel +=  ' Activity (normalized)'
+        ax.set_ylabel(ylabel)
+        #ax.set_title(FRONTALREGIONS[i], verticalalignment='bottom')
         ax.set_ylim(ymin=0, ymax=1.5)
         for pop in POPULATIONS :
-            ax.plot(TIMES, FRONTALREGIONSVALUES[i][:, POPULATIONS[pop]], label=pop)
-        box = ax.get_position()
-        ax.set_position([box.x0, box.y0, box.width , box.height])
-        ax.legend(fontsize="x-small", bbox_to_anchor=[0.5, 0], loc='upper center', ncol=4, borderaxespad=0.25)
+            if pop != "imaginary" :
+                ax.plot(TIMES, FRONTALREGIONSVALUES[i][:, POPULATIONS[pop]], label=pop)
         if i < len(ESTIMATEVALUES) and len(ESTIMATEVALUES[i]) > 0 :
-            ax.plot(TIMES, ESTIMATEVALUES[i], '--', linewidth=2)
+            ax.plot(TIMES, ESTIMATEVALUES[i], '--', linewidth=2, label='default')
+        if i==0 :
+            box = ax.get_position()
+            ax.set_position([box.x0, box.y0, box.width , box.height])
+            ax.legend(fontsize="x-small", bbox_to_anchor=[0.5, 0], loc='upper center', ncol=4, borderaxespad=0.25)
     ax.set_xlabel('Time (ms)')
+    fig.savefig('plots/' + TITLE + '.jpg')
 
-    #plt.tight_layout()
+    plt.tight_layout()
 
 #==============================================================================
 #struct = np.random.normal(.1, .05, (20,20))

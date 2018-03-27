@@ -20,28 +20,29 @@ global PC
 
 weights = np.asarray([.5] * 4)
 
-#VT = noisyZeros(4, vttype) # Just the representative feature of each stimulus. For eg : stim1 = ("food" : 8, "water" : 1)
-
-#MMA = noisyZeros(4, motion) # The motor command that will lead to respective stimulus in VT. For eg : mot1 = {"yaw" : 45, move : 1, "expected" : (x,y)}
-
-PC = (0,0) # gives current location - (x,y)
-
 class VisualCortex(object) :
     def __init__(self, FEF, MC, ACC):
-        self.pop = np.zeros(4, vttype)
         self.FEF = FEF
         self.MC = MC
         self.ACC = ACC
         self.SC = self.FEF.SC
         self.PPC = self.MC.PPC
         self.insula_a = self.ACC.insula_a
-        self.begin = False
-        self.BGOverride = False
-        self._plotCount = 0
+        self.pop = np.zeros(4, vttype)
         self.values = noisyZeros(MAXIMUM_STIMULI, valuetype)
         self.value_estimate = noisyZeros(1, valuetype)
         self.gatheringAppearInfo = 3
         self.gatheringSeeInfo = 3
+        self.gatheringReachInfo = 3
+        self.gotTYawAppear = False
+        self.gotTYawSee = False
+        self.gotReaching = False
+        self.flag = False
+        self.command = ''
+        self.targetyaw = 0
+        self.turning = False
+        self.goingForFood = False
+        self.goingForWater = False
 
     def resetValues(self) :
         self.values = noisyZeros(MAXIMUM_STIMULI, valuetype)
@@ -79,11 +80,23 @@ class VisualCortex(object) :
 
         minseedist = 0
         maxseedist = 0
+        dealingappear = False
+        maxfood = 0
+        maxfoodname = ''
+        maxwater = 0
+        maxwatername = ''
         for se in moment['observation']['see'] :
             VT = self.pop
             VT[i]["name"] = str(se["name"])
             VT[i]["valence"]["food"] = FOOD_VALUES[se["name"]]
             VT[i]["valence"]["water"] = WATER_VALUES[se["name"]]
+            if FOOD_VALUES[se["name"]] > maxfood :
+                maxfood = FOOD_VALUES[se["name"]]
+                maxfoodname = se["name"]
+            if WATER_VALUES[se["name"]] > maxwater :
+                maxwater = WATER_VALUES[se["name"]]
+                maxwatername = se["name"]
+
             self.values["actual"][POPULATIONS[se["name"]]] = .75 + getNoise()
             self.SC.pop[POPULATIONS[se["name"]]]["command"]["yaw"] = se["yaw"] # Technically, not for direct use.
             self.PPC.pop[POPULATIONS[se["name"]]]["command"]["pos"] =  np.array([se["x"], se["z"]])
@@ -103,7 +116,7 @@ class VisualCortex(object) :
             3) Update PPC with position details (especially for estimate position)
             4) Should not be able to obtain appetetiveness details yet.
             '''
-            self.values["actual"][POPULATIONS[it["name"]]] = .25 + getNoise()
+            self.values["actual"][POPULATIONS[it["name"]]] = .2 + getNoise()
             self.SC.pop[POPULATIONS[it["name"]]]["command"]["yaw"] = it["yaw"] # Technically, not for direct use.
             self.PPC.pop[POPULATIONS[it["name"]]]["command"]["pos"] =  np.array([it["x"], it["z"]])
             obX.append(it["x"])
@@ -112,13 +125,29 @@ class VisualCortex(object) :
             obYaws.append(it["yaw"])
             appearitems.append([it["x"], it["z"]])
 
-        if len(seeitems) > 0 and not self.FEF.working :
-            print 'see items' , seeitems
+        if len(reachitems) > 0 and not self.FEF.working and not self.gotReaching:
+            print 'reach items' , reachitems
+            if self.gatheringReachInfo > 0 :
+                self.MC.working = False
+                self.gatheringReachInfo -= 1
+                self.command = 'move 0'
+            else :
+                self.gotReaching = True
+                if self.goingForWater :
+                    self.insula_a.thirst = 0
+                elif self.goingForFood :
+                    self.insula_a.hunger = 0
+
+
+        if len(seeitems) > 0 and not self.FEF.working and not self.gotTYawSee:
+            print 'see items' , seeitems, 'no. of appear ', len(appearitems)
             print minseedist, maxseedist
             if self.gatheringSeeInfo > 0 :
                 self.MC.working = False
                 self.gatheringSeeInfo -= 1
-            else :
+                self.command = 'move 0'
+
+            elif len(seeitems) >= len(appearitems):
                 for s in seeitems :
                     factor = 1 - ((self.PPC.pop[POPULATIONS[se["name"]]]["command"]["dist"] - minseedist)/maxseedist)
                     food, water = FOOD_VALUES[se["name"]], WATER_VALUES[se["name"]]
@@ -127,40 +156,68 @@ class VisualCortex(object) :
                     else :
                         self.insula_a.values["actual"][POPULATIONS[se["name"]]] += .25 * food/10
 
-                    self.ACC.values[POPULATIONS[se["name"]]] +=  .25 * factor
+                    #self.ACC.values[POPULATIONS[se["name"]]] +=  .25 * factor
+                if self.insula_a.thirst > self.insula_a.hunger :
+                    chosenitem = maxwatername
+                    self.goingForWater = True
+                else :
+                    chosenitem = maxfoodname
+                    self.goingForFood = True
+                print 'of seen, chosing ', chosenitem
+                self.targetyaw = self.SC.pop[POPULATIONS[chosenitem]]["command"]["yaw"]
+                self.command = 'turn '+str(getTurnSpeed(self.targetyaw)*.2)
+                print 'new turn target after selecting ', self.targetyaw
+                if self.targetyaw != 0 : self.turning = True
+                self.gotTYawSee = True
+                self.values["actual"][POPULATIONS[chosenitem]] = 1 + getNoise()
+                self.ACC.values[POPULATIONS[chosenitem]] = 1 + getNoise()
 
-        elif len(appearitems) > 0 and not self.FEF.working :
+
+        elif len(appearitems) > 0 and not self.FEF.working and not self.gotTYawAppear :
             '''
             Just to add some delay
             '''
+            print 'appear items ', appearitems
+            dealingappear = True
+            self.flag = True
             if self.gatheringAppearInfo > 0 :
                 self.value_estimate["actual"][:] = .5 + getNoise(self.value_estimate["actual"].size)
                 self.MC.working = False
                 self.gatheringAppearInfo -= 1
+                self.command = 'move 0'
             else :
-                print 'appear items ', appearitems
                 k = np.argmax(self.values["actual"])
                 if np.argmax(self.PPC.values_move[:]["desired"] < .25) : self.PPC.values_move[k]["desired"] = .75
                 if np.argmax(self.ACC.insula_a.values[:]["desired"]) < .25 : self.ACC.insula_a.values[k]["desired"] = .75
                 meanpoint = np.mean(appearitems, axis=0)
                 meanyaw = getYawDelta(meanpoint[0], meanpoint[1], myLoc["x"], myLoc["z"], myDir["yaw"])
+                meanyaw += RANDOM_NOISE[1]
+                print 'setting mean ', meanyaw
+                self.targetyaw = meanyaw
+                self.command = 'turn '+str(getTurnSpeed(meanyaw)*.2)
+                if self.targetyaw != 0 : self.turning = True
+                self.gotTYawAppear = True
                 self.FEF.working = np.abs(self.SC.yaw - meanyaw) > 1
                 self.SC.pop_estimate[0]["command"]["yaw"] = meanyaw - self.SC.yaw
                 self.PPC.pop_estimate[0]["command"]["pos"] = meanpoint
                 #plotItems(myX, myZ, obX, obZ, obYaws, self._plotCount, 111)
 
+        print 'new targetyaw ', self.targetyaw, 'self yaw ', self.SC.yaw
+        if self.turning and np.abs(self.targetyaw - self.SC.yaw) < 1 :
+            self.command = 'turn 0; move .6'
+            self.turning = False
         # This is not urgent need, but just a motivation to explore
-        need = (self.ACC.getCurrentThirst() + self.ACC.getCurrentHunger() > 0)
-        print 'About need : ', need, self.values["actual"], self.MC.working, self.FEF.working
+        need = (self.ACC.getCurrentThirst() + self.ACC.getCurrentHunger() > 5)
         if need and (np.max(self.values["actual"]) < .2 or self.MC.working or self.FEF.working) :
+            print 'About need : ', need, self.values["actual"], self.MC.working, self.FEF.working
+            if not self.flag :
+                self.flag = True
+                self.command = "move .6"
             self.value_estimate["desired"][:] = .5 + getNoise() #SET VC ESTIMATE DESIRED
             targetyaw = self.SC.pop_estimate[0]["command"]["yaw"]
             sourceyaw = self.SC.yaw
-            if True : #np.abs(targetyaw - sourceyaw) > 1 :
-                #self.FEF.values["Iext"][:] = self.values["actual"][:]
-                self.FEF.value_estimate["Iext"][:] = ((targetyaw - sourceyaw)/targetyaw) * self.value_estimate["desired"][:]
-                #self.SC.values_turn["desired"][:] = self.FEF.values["Iext"][:]
-                self.SC.estimate_turn["desired"][:] = self.FEF.value_estimate["Iext"][:]
+            self.FEF.value_estimate["Iext"][:] = ((targetyaw - sourceyaw)/targetyaw) * self.value_estimate["desired"][:]
+            self.SC.estimate_turn["desired"][:] = self.FEF.value_estimate["Iext"][:]
 
 '''
 The Sensory dudes - in the order of location, need and preference
@@ -194,7 +251,7 @@ class SuperiorColliculus(object) :
         self.estimate_turn[0]["note"] = "setYaw " + str(targetYaw) + ";"
 
     def resetValues(self) :
-        print 'Resetting values'
+        print 'SC Resetting values'
         self.values_turn = noisyZeros(MAXIMUM_POSITIONS, valuetype)
         self.estimate_turn = noisyZeros(1, valuetype)
 
@@ -212,7 +269,6 @@ class PrimarySomatoSensoryCortex(object) :
         self.waiting = False
         self.targetPos = np.array([None, None]) # Only (x, z)
         self.targetYaw = None
-        self.targetOn = False
         self.waitCount = 0
         self.waitSignal = False
         '''
@@ -231,11 +287,8 @@ class PrimarySomatoSensoryCortex(object) :
     def continueTurn(self) :
         return (np.abs(self.yaw - self.targetYaw) > 1.5)
 
-    def update(self) :
-        self.targetOn = self.moving or self.turning or self.waiting
-
     def status(self) :
-        print 'target', self.targetOn, 'moving', self.moving, 'waiting ', self.waiting, 'turning ', self.turning
+        print 'moving', self.moving, 'waiting ', self.waiting, 'turning ', self.turning
 
 
     def activateTurn(self, targetYaw=0) :
@@ -250,7 +303,7 @@ class PrimarySomatoSensoryCortex(object) :
             self.estimate_move[0]["note"] = "tpx " + target[0] + "; tpz "+ target[1] +";"
 
     def resetValues(self) :
-        print 'Resetting values'
+        print 'PPC Resetting values'
         self.values[:]["Iext"] = .1 + getNoise()
         self.value_estimate[:]["Iext"] = .1 + getNoise()
 
@@ -268,7 +321,7 @@ class Insula_A(object):
 
     def moveEffect(self) :
         self.hunger += 1
-        self.thirst += 2
+        self.thirst += .2
         self.energy -= 1.5
 
     def status(self) :
@@ -298,7 +351,7 @@ class FrontalEyeFields(object) :
         self.SC = SC
 
     def resetValues(self) :
-        print 'Resetting values'
+        print 'FEF Resetting values'
         self.values[:]["Iext"] = .1 + getNoise()
         self.value_estimate[:]["Iext"] = .1 + getNoise()
 
@@ -316,7 +369,7 @@ class MotorCortex(object) :
         agent_host.sendChat('In Motor')
 
     def resetValues(self) :
-        print 'Resetting values'
+        print 'MC Resetting values'
         self.values[:]["Iext"] = .1 + getNoise()
         self.value_estimate[:]["Iext"] = .1 + getNoise()
 
@@ -492,6 +545,22 @@ class FEFVAConnection(object) :
                 FEF.working = False
                 self.delay = self.setDelay()
 
+class FEFMCConnection(object) :
+    '''
+    This is to guarantee mutual exclusion (for now)
+    which could normally mutual modulation.
+    '''
+    def __init__(self, source, target, weights = np.ones(MAXIMUM_STIMULI)) :
+        self.source = source #FEF
+        self.target = target #MC
+        self.weights= weights
+
+    def propagate(self) :
+        FEF = self.source
+        MC = self.target
+        if(np.max(FEF.values["Iext"]) > .5 or np.max(FEF.value_estimate["Iext"]) > .5) :
+            MC.value_estimate["Iext"][:] = getNoise()
+            MC.values["Iext"][:] = getNoise()
 
 class MCVAConnection(object) :
 

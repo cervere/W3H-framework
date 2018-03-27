@@ -150,15 +150,37 @@ for iRepeat in range(num_reps):
     prevSeq = ''
     note = ''
     ACCtoVA = ACCVAConnection(ACC, VC)
-    MCtoVA = MCVAConnection(MC, VC)
     FEFtoVA = FEFVAConnection(FEF, VC)
+    MCtoVA = MCVAConnection(MC, VC)
+    FEFtoMC = FEFMCConnection(FEF, MC)
     movingOn, turningOn = False, False
     movenote, turnnote = '', ''
     np.random.shuffle(RANDOM_NOISE)
     while world_state.is_mission_running:
         world_state = agent_host.getWorldState()
+        if PPC.waitCount > 0 : PPC.waitCount -= 1
+        #if not PPC.waitSignal and PPC.waitCount == 0:
+            #PPC.waiting = False
+            # Time to execute the next command, if we have one:
+        while (PPC.waitCount == 0 and currentSequence != ""):
+            print 'executing ', currentSequence
+            commands = currentSequence.split(";", 1)
+            command = commands[0].strip()
+            if len(commands) > 1:
+                currentSequence = commands[1]
+            else:
+                currentSequence = ""
+            verb,sep,param = command.partition(" ")
+            if verb == "wait":
+                PPC.waitCount = int(param.strip())
+                PPC.waiting = True
+            elif verb == "PPCWait":
+                PPC.waitSignal = True
+            else:
+                agent_host.sendCommand(command) # Send the command to Minecraft.
+
+        if PPC.moving : INS_A.moveEffect()
         if world_state.number_of_observations_since_last_state > 0:
-            #print "in the beginning ", MC.state, 'target', PPC.targetOn, 'moving', PPC.moving, 'waiting ', PPC.waiting, 'turning ', PPC.turning
             '''
              Observe(Environment)
                 * Internal
@@ -181,13 +203,20 @@ for iRepeat in range(num_reps):
                 #ACC.status()
                 ACC.check()
             VC.process(moment)
-            # if VC.process(moment) < 1 :
-            #     print 'Stopping immediately : visual returned zero'
-            #     SetVelocity(0)
-            #     PPC.moving = False
+            print 'VC check VA : ', VC.values["desired"], VC.value_estimate["desired"]
+            print 'VC check : ', MC.values["Iext"], MC.value_estimate["Iext"]
             ACCtoVA.propagate()
+            print 'ACCtoVA check VA : ', VC.values["desired"], VC.value_estimate["desired"]
+            print 'ACCtoVA check : ', MC.values["Iext"], MC.value_estimate["Iext"]
             FEFtoVA.propagate()
+            print 'FEFtoVA check VA : ', VC.values["desired"], VC.value_estimate["desired"]
+            print 'FEFtoVA check : ', MC.values["Iext"], MC.value_estimate["Iext"]
             MCtoVA.propagate()
+            print 'MCtoVA check VA : ', VC.values["desired"], VC.value_estimate["desired"]
+            print 'MCtoVA check : ', MC.values["Iext"], MC.value_estimate["Iext"]
+            FEFtoMC.propagate()
+            print 'FEFtoMC check VA : ', VC.values["desired"], VC.value_estimate["desired"]
+            print 'FEFtoMC check : ', MC.values["Iext"], MC.value_estimate["Iext"]
             '''
              Perceive(Observations)
                 * Internal
@@ -222,7 +251,6 @@ for iRepeat in range(num_reps):
             VA_ACTUAL.append(np.array(VC.values["actual"]))
             INS_A_DESIRED.append(np.array(INS_A.values["desired"]))
             INS_A_ACTUAL.append(np.array(INS_A.values["actual"]))
-            print 'SC : ', SC.values_turn["desired"]
             SC_DESIRED.append(np.array(SC.values_turn["desired"]))
             SC_ACTUAL.append(np.array(SC.values_turn["actual"]))
             TURN_ESTIMATE_VALUES["desired"].append(np.array(SC.estimate_turn["desired"]))
@@ -246,16 +274,8 @@ for iRepeat in range(num_reps):
             ACT
             '''
             ACC.status()
-            if moment['globalTime'] > 225 :
-                MC.resetValues()
-            elif False : #moment['globalTime'] > 50 :
-                MC.estimate_turn[0]["Iext"] = .1
-                MC.estimate_move[0]["Iext"] = .75
-                MC.estimate_move[0]["note"] = "tpx .25; tpz 35;"
-                MC.values_turn[:]["Iext"] = .1
-                MC.values_move[:]["Iext"] = .1
-
-
+            #if moment['globalTime'] > 225 :
+            #    MC.resetValues()
             '''
             Decide Action
             '''
@@ -282,14 +302,17 @@ for iRepeat in range(num_reps):
             if targetyaw - SC.yaw == 0 : turnSpeed = 0
             elif targetyaw - SC.yaw > 0 : turnSpeed = .2
             else : turnSpeed = -.2
-            currentSequence = "turn " + str(turnSpeed) + ";"
+            #currentSequence = "turn " + str(turnSpeed) + ";"
             print 'after turn check', currentSequence
 
+            print FEF.values["Iext"], FEF.value_estimate["Iext"]
             if turnSpeed == 0 and ((MC.values["Iext"] > .25).sum() == 1 or MC.value_estimate["Iext"] > 0.25)  :
+                MC.working = True
                 moveSpeed = .6
             else :
                 moveSpeed = 0
-            currentSequence += "move " + str(moveSpeed) + ";"
+            #currentSequence += "move " + str(moveSpeed) + ";"
+            currentSequence = VC.command
 
         '''
         The internal reward processing can be handled later.
@@ -300,29 +323,6 @@ for iRepeat in range(num_reps):
             energy += delta
         '''
 
-        if PPC.waitCount > 0 : PPC.waitCount -= 1
-        #if not PPC.waitSignal and PPC.waitCount == 0:
-            #PPC.waiting = False
-            # Time to execute the next command, if we have one:
-        while (PPC.waitCount == 0 and currentSequence != ""):
-            print 'executing ', currentSequence
-            commands = currentSequence.split(";", 1)
-            command = commands[0].strip()
-            if len(commands) > 1:
-                currentSequence = commands[1]
-            else:
-                currentSequence = ""
-            verb,sep,param = command.partition(" ")
-            if verb == "wait":
-                PPC.waitCount = int(param.strip())
-                PPC.waiting = True
-            elif verb == "PPCWait":
-                PPC.waitSignal = True
-            else:
-                agent_host.sendCommand(command) # Send the command to Minecraft.
-
-        PPC.update()
-        if PPC.moving : INS_A.moveEffect()
         time.sleep(0.1)
 
 
@@ -334,7 +334,6 @@ for iRepeat in range(num_reps):
         print "Error:",error.text
     time.sleep(0.5) # Give the mod a little time to prepare for the next mission.
 
-    VC._plotCount += 1
     VC_DESIRED_PLOT = np.asarray(VA_DESIRED)
     VC_ACTUAL_PLOT = np.asarray(VA_ACTUAL)
     INS_A_DESIRED_PLOT = np.asarray(INS_A_DESIRED)
@@ -353,7 +352,6 @@ for iRepeat in range(num_reps):
     genericPlot(VA_DESIRED_TIMES, SC_DESIRED_PLOT, SC_ACTUAL_PLOT, 'Superior Colliculus(SC)', TURN_ESTIMATE_VALUES)
     genericPlot(VA_DESIRED_TIMES, PPC_DESIRED_PLOT, PPC_ACTUAL_PLOT, 'PrimarySomatoSensoryCortex (PPC)', MOVE_ESTIMATE_VALUES)
     genericPlot(VA_DESIRED_TIMES, INS_A_DESIRED_PLOT, INS_A_ACTUAL_PLOT, 'Insular Cortex(-ACC)')
-    #genericPlot(VA_DESIRED_TIMES, ACC_HUNGER_PLOT, ACC_THIRST_PLOT, 'ACC')
 
     plotPath(traces_x, traces_z)
 
@@ -376,12 +374,12 @@ for iRepeat in range(num_reps):
     ESTIMATE_VALUES=[]
     ESTIMATE_VALUES.append(FEF_ESTIMATE_VALUES)
     ESTIMATE_VALUES.append(MOTOR_ESTIMATE_VALUES)
-    genericFrontalPlot(VA_DESIRED_TIMES, ['FEF', 'Motor', 'ACC', 'OFC'], FRONTALVALUES, 'Frontal', ESTIMATE_VALUES)
+    genericFrontalPlot(VA_DESIRED_TIMES, ['FEF', 'Motor', 'ACC'], FRONTALVALUES, 'Frontal', [])#ESTIMATE_VALUES)
 
 
     #plt.show()
 
-    pdf = matplotlib.backends.backend_pdf.PdfPages("output.pdf")
+    pdf = matplotlib.backends.backend_pdf.PdfPages("plots/output.pdf")
     for fig in xrange(1, plt.figure().number): ## will open an empty extra figure :(
         pdf.savefig( fig )
     pdf.close()
