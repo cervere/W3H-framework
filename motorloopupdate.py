@@ -344,7 +344,7 @@ actionMap = {
 "LOCATE" : {"next" : "DECIDE", "frere" : "REACH", "fils" : "DECIDE", "act" : "move 0; wait 5", "ens" : [5, 9], "OFF" : "EXPLORE", "color" :  "g", "msg" : "Ooh..I find something around!"},
 "DECIDE" : {"next" : "ORIENT", "frere" : "ORIENT", "fils" : "", "act" : "wait 5", "ens" : [8, 8], "OFF" : "", "color" :  "b", "msg" : "I'm trying to decide!"},
 "ORIENT" : {"next" : "REACH", "frere" : "", "fils" : "", "act" : "turn ", "ens" : [8, 10], "OFF" : "DECIDE", "color" :  "b", "msg" : "I chose something, I will orient towards it."},
-"REACH" : {"next" : "CONSUME", "frere" : "CONSUME", "fils" : "", "act" : "move .5; PPCWait 1; move 0", "ens" : [5, 13], "OFF" : "ORIENT,LOCATE", "color" :  "g", "msg" : "I will appraoch this object"},
+"REACH" : {"next" : "CONSUME", "frere" : "CONSUME", "fils" : "", "act" : "move .5; PPCWait 1; move 0", "ens" : [5, 13], "OFF" : "ORIENT,LOCATE", "color" :  "g", "msg" : "I will approach this object"},
 "CONSUME" : {"next" : "IDLE", "frere" : "", "fils" : "", "act" : "wait 10; tpx 0.; setYaw 0", "ens" : [6, 16], "OFF" : "REACH,EAT", "color" :  "g", "msg" : "I got it! Nom.. nom.. nom.."}
 }
 

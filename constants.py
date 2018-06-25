@@ -29,7 +29,7 @@ FOOD_VALUES = {"apple" : 9, "cake" : 7, "water_bucket" : 3, "mushroom_stew" : 4}
 WATER_VALUES = {"apple" : 2, "cake" : 1, "water_bucket" : 9, "mushroom_stew" : 7}
 
 
-POPULATIONS = {"apple" : 0, "cake" : 1, "water_bucket" : 2, "mushroom_stew" : 3, "imaginary" : 4}
+POPULATIONS = {"apple" : 0, "cake" : 1, "water_bucket" : 2, "mushroom_stew" : 3} #, "imaginary" : 4}
 HUNGER_ITEMS = ["apple", "cake"]
 THIRST_ITEMS = ["water_bucket", "mushroom_stew"]
 

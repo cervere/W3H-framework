@@ -75,6 +75,7 @@ class VisualCortex(object) :
             self.values["actual"][POPULATIONS[re["name"]]] = 1 + getNoise()
             self.ACC.hunger_values[POPULATIONS[re["name"]]] = FOOD_VALUES[re["name"]]
             self.ACC.thirst_values[POPULATIONS[re["name"]]] = WATER_VALUES[re["name"]]
+            self.SC.pop[POPULATIONS[re["name"]]]["command"]["yaw"] = re["yaw"]
             reachitems.append(re["name"])
         print 'reach items' , reachitems
 
@@ -130,14 +131,14 @@ class VisualCortex(object) :
             if self.gatheringReachInfo > 0 :
                 self.MC.working = False
                 self.gatheringReachInfo -= 1
-                self.command = 'move 0'
             else :
                 self.gotReaching = True
+                #FEF.values["Iext"][2] = .5
                 if self.goingForWater :
                     self.insula_a.thirst = 0
                 elif self.goingForFood :
                     self.insula_a.hunger = 0
-
+                self.command = 'move 0;'
 
         if len(seeitems) > 0 and not self.FEF.working and not self.gotTYawSee:
             print 'see items' , seeitems, 'no. of appear ', len(appearitems)

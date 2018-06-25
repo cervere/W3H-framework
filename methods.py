@@ -9,7 +9,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 debug = False
 
-REACH_SCOPE = 3
+REACH_SCOPE = 5
 SEE_SCOPE = 8
 APPEAR_SCOPE = 15
 AGENT_FOV = np.pi * (2./3)

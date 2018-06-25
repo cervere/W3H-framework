@@ -145,6 +145,7 @@ for iRepeat in range(num_reps):
             '''
             msg = world_state.observations[-1].text
             ob = json.loads(msg)
+            print ob
             observations["data"].append(ob)
             moment = copy.copy(base_moment)
             prepareMoment(moment, ob)

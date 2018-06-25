@@ -17,6 +17,7 @@ from motorloopupdatenew import *
 #### Grid data goes to context
 #### ObservationsFromNearby goes to cues / items with locations
 import matplotlib.backends.backend_pdf
+import matplotlib.animation as animation
 
 EntityInfo = namedtuple('EntityInfo', 'x, y, z, name, quantity, yaw, pitch, life')
 EntityInfo.__new__.__defaults__ = (0, 0, 0, "", 1)
@@ -86,6 +87,7 @@ for iRepeat in range(num_reps):
     my_mission_record.recordRewards()
     my_mission_record.recordMP4(24,400000)
     max_retries = 3
+    decided = False
     for retry in range(max_retries):
         try:
             # Attempt to start the mission:
@@ -288,21 +290,46 @@ for iRepeat in range(num_reps):
 
             Get the turn speed from each of these conditions
             '''
-            if (FEF.values["Iext"] > .25).sum() == 1  :
-                print '0'
-                targetyaw = SC.pop[np.argmax(FEF.values["Iext"])]["command"]["yaw"]
-            elif FEF.value_estimate["Iext"] > 0.25 : #not PPC.moving :
-                print '1'
-                targetyaw = SC.pop_estimate[0]["command"]["yaw"]
-            else :
-                print '2'
-                targetyaw = SC.yaw
+            print 'FEF : ' , FEF.values["Iext"]
+            currh = (1 - ACC.insula_a.hunger/20)
+            currt = (1 - ACC.insula_a.thirst/20)
+            pri_h = 1 - np.power(currh, np.tan(.75*(np.pi/2)))
+            pri_t = 1 - np.power(currt, np.tan(.75*(np.pi/2)))
+            print 'ACC : ', pri_h, ', ', pri_t
+            if pri_h > .2 and pri_h > pri_t :
+                FEF.values["Iext"][POPULATIONS["water_bucket"]] = .1
+                FEF.values["Iext"][POPULATIONS["mushroom_stew"]] = .1
+                FEF.values["Iext"][POPULATIONS["apple"]] = FOOD_VALUES["apple"]/10.
+                FEF.values["Iext"][POPULATIONS["cake"]] = FOOD_VALUES["cake"]/10.
+            if pri_t > .2 and pri_t >= pri_h :
+                FEF.values["Iext"][POPULATIONS["apple"]] = .1
+                FEF.values["Iext"][POPULATIONS["cake"]] = .1
+                FEF.values["Iext"][POPULATIONS["water_bucket"]] = WATER_VALUES["water_bucket"]/10
+                FEF.values["Iext"][POPULATIONS["mushroom_stew"]] = WATER_VALUES["mushroom_stew"]/10
+
+            if not decided :
+                print 'before :', FEF.values["Iext"]
+                if (FEF.values["Iext"] > .25).sum() == 2  :
+                    print '0', 'decided...'
+                    decided = True
+                    print POPULATIONS
+                    print FEF.values["Iext"]
+                    print SC.pop["command"]["yaw"]
+                    targetyaw = SC.pop[np.argmax(FEF.values["Iext"])]["command"]["yaw"]
+                elif FEF.value_estimate["Iext"] > 0.25 : #not PPC.moving :
+                    print '1'
+                    targetyaw = SC.pop_estimate[0]["command"]["yaw"]
+                else :
+                    print '2'
+                    targetyaw = SC.yaw
 
             print 'tar' , targetyaw, 'src', SC.yaw
             if targetyaw - SC.yaw == 0 : turnSpeed = 0
             elif targetyaw - SC.yaw > 0 : turnSpeed = .2
             else : turnSpeed = -.2
             #currentSequence = "turn " + str(turnSpeed) + ";"
+            if decided :
+                VC.command = "setYaw " + str(targetyaw)
             print 'after turn check', currentSequence
 
             print FEF.values["Iext"], FEF.value_estimate["Iext"]
@@ -348,25 +375,36 @@ for iRepeat in range(num_reps):
     ACC_PLOT = np.asarray(ACC_VALUES)
     FEF_VALUES_PLOT = np.asarray(FEF_VALUES)
 
-    genericPlot(VA_DESIRED_TIMES, VC_DESIRED_PLOT, VC_ACTUAL_PLOT, 'Visual Areas', VA_ESTIMATE)
-    genericPlot(VA_DESIRED_TIMES, SC_DESIRED_PLOT, SC_ACTUAL_PLOT, 'Superior Colliculus(SC)', TURN_ESTIMATE_VALUES)
-    genericPlot(VA_DESIRED_TIMES, PPC_DESIRED_PLOT, PPC_ACTUAL_PLOT, 'PrimarySomatoSensoryCortex (PPC)', MOVE_ESTIMATE_VALUES)
-    genericPlot(VA_DESIRED_TIMES, INS_A_DESIRED_PLOT, INS_A_ACTUAL_PLOT, 'Insular Cortex(-ACC)')
+    #genericPlot(VA_DESIRED_TIMES, VC_DESIRED_PLOT, VC_ACTUAL_PLOT, 'Visual Areas', VA_ESTIMATE)
+    #genericPlot(VA_DESIRED_TIMES, SC_DESIRED_PLOT, SC_ACTUAL_PLOT, 'Superior Colliculus(SC)', TURN_ESTIMATE_VALUES)
+    #genericPlot(VA_DESIRED_TIMES, PPC_DESIRED_PLOT, PPC_ACTUAL_PLOT, 'PrimarySomatoSensoryCortex (PPC)', MOVE_ESTIMATE_VALUES)
+    #genericPlot(VA_DESIRED_TIMES, INS_A_DESIRED_PLOT, INS_A_ACTUAL_PLOT, 'Insular Cortex(-ACC)')
 
-    plotPath(traces_x, traces_z)
-
+    #plotPath(traces_x, traces_z)
+    hlim, tlim = 0, 0
+    for cnt in range(len(HUNGER_VALUES)) :
+        if HUNGER_VALUES[cnt] + THIRST_VALUES[cnt] > 5 :
+            hlim = HUNGER_VALUES[cnt]
+            tlim = THIRST_VALUES[cnt]
+            break
     fig = plt.figure()
     fig.suptitle('Hunger and Thirst', fontsize=20)
     ax = fig.add_subplot(111)
     ax.set_xlabel('Time (ms)')
     ax.set_ylabel('Units')
     ax.set_ylim(ymin=0, ymax=THIRST_FATAL_LIMIT+5)
-    ax.plot(VA_DESIRED_TIMES, HUNGER_VALUES, label='hunger')
-    ax.plot(VA_DESIRED_TIMES, THIRST_VALUES, label='thirst')
-    ax.axhline(THIRST_FATAL_LIMIT)
-    ax.axhline(HUNGER_FATAL_LIMIT)
+    hline, = ax.plot(VA_DESIRED_TIMES, HUNGER_VALUES, label='hunger')
+    tline, = ax.plot(VA_DESIRED_TIMES, THIRST_VALUES, label='thirst')
+    ax.axhline(hlim, color='b')
+    ax.axhline(tlim, color='g')
+    #ax.axhline(HUNGER_FATAL_LIMIT)
     ax.legend(loc='center left',fontsize="x-small", bbox_to_anchor=(1, 0.5))
-
+    def animate(i):
+        hline.set_ydata(HUNGER_VALUES * np.concatenate([np.ones(i) , np.zeros(len(HUNGER_VALUES)-i)]))  # update the data
+        tline.set_ydata(THIRST_VALUES * np.concatenate([np.ones(i) , np.zeros(len(THIRST_VALUES)-i)]))  # update the data
+        return hline, tline,
+    ani = animation.FuncAnimation(fig, animate, np.arange(1, len(VA_DESIRED_TIMES)), interval=35, blit=True, repeat=False)
+    ani.save('animation.mp4', fps=10)
     FRONTALVALUES = []
     FRONTALVALUES.append(FEF_VALUES_PLOT)
     FRONTALVALUES.append(MOTOR_VALUES_PLOT)
@@ -374,10 +412,10 @@ for iRepeat in range(num_reps):
     ESTIMATE_VALUES=[]
     ESTIMATE_VALUES.append(FEF_ESTIMATE_VALUES)
     ESTIMATE_VALUES.append(MOTOR_ESTIMATE_VALUES)
-    genericFrontalPlot(VA_DESIRED_TIMES, ['FEF', 'Motor', 'ACC'], FRONTALVALUES, 'Frontal', [])#ESTIMATE_VALUES)
+    #genericFrontalPlot(VA_DESIRED_TIMES, ['FEF', 'Motor', 'ACC'], FRONTALVALUES, 'Frontal', [])#ESTIMATE_VALUES)
 
 
-    #plt.show()
+    plt.show()
 
     pdf = matplotlib.backends.backend_pdf.PdfPages("plots/output.pdf")
     for fig in xrange(1, plt.figure().number): ## will open an empty extra figure :(
