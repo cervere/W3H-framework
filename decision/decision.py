@@ -43,6 +43,7 @@ structures = (ACC_CTX, ACC_STR, ACC_STN, ACC_GPI, ACC_THL)
 
 cognitive_connections = [ #Only cognitive channels
     OneToOne(ACC_CTX.cog.V, ACC_STR.cog.Isyn, np.array([0.53183305, 0.56847023, 0.52183305, 0.55847023]), gain=STR_GAIN),
+    #OneToOne(ACC_CTX.cog.V, ACC_STR.cog.Isyn, weights(4), gain=STR_GAIN),
     OneToOne(ACC_CTX.cog.V, ACC_STN.cog.Isyn, np.ones(4), gain=+1.0),
     OneToOne(ACC_STR.cog.V, ACC_GPI.cog.Isyn, np.ones(4), gain=-2.0),
     OneToAll(ACC_STN.cog.V, ACC_GPI.cog.Isyn, np.ones(4), gain=+1.0),
@@ -85,6 +86,7 @@ OFC_structures = (OFC_CTX, OFC_STR, OFC_STN, OFC_GPI, OFC_THL)
 
 cognitive_connections_emotion = [ #Only cognitive channels
     OneToOne(OFC_CTX.cog.V, OFC_STR.cog.Isyn, np.array([0.56847023, 0.53183305, 0.55847023, 0.52183305]), gain=STR_GAIN),
+    #OneToOne(OFC_CTX.cog.V, OFC_STR.cog.Isyn, weights(4), gain=STR_GAIN),
     OneToOne(OFC_CTX.cog.V, OFC_STN.cog.Isyn, np.ones(4), gain=+1.0),
     OneToOne(OFC_STR.cog.V, OFC_GPI.cog.Isyn, np.ones(4), gain=-2.0),
     OneToAll(OFC_STN.cog.V, OFC_GPI.cog.Isyn, np.ones(4), gain=+1.0),
@@ -224,7 +226,7 @@ def choose(cues, positions, bias=False):
     fig1 = display_ctx(OFC_history, TMS/1000.0)
     fig2 = display_ctx(history, TMS/1000.0)
     pdf = pltpdf.PdfPages("output.pdf")
-#    for fig in xrange(1, plt.figure().number): ## will open an empty extra figure :(
+    #for fig in xrange(1, plt.figure().number): ## will open an empty extra figure :(
     pdf.savefig( fig1 )
     pdf.savefig( fig2 )
 
